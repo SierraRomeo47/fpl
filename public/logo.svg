@@ -1,0 +1,152 @@
+<svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B35;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FF8C42;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F59E0B;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F59E0B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FCD34D;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="ballGlow" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#FF6B35;stop-opacity:0.4" />
+      <stop offset="100%" style="stop-color:#FF6B35;stop-opacity:0" />
+    </radialGradient>
+    <filter id="textShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="1.5" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.4"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Professional Marketing-Standard Logo -->
+  <g>
+    <!-- Football/Soccer Ball - Modern Stylized Design -->
+    <g transform="translate(90, 55)">
+      <!-- Outer glow -->
+      <circle cx="0" cy="0" r="38" fill="url(#ballGlow)" opacity="0.6"/>
+      
+      <!-- Main ball circle -->
+      <circle cx="0" cy="0" r="30" fill="url(#orangeGrad)" opacity="0.2" stroke="url(#orangeGrad)" stroke-width="2"/>
+      
+      <!-- Professional Hexagonal Football Pattern -->
+      <g opacity="0.7">
+        <!-- Center hexagon -->
+        <path d="M 0 -16 L 9 -8 L 9 8 L 0 16 L -9 8 L -9 -8 Z" 
+              fill="none" 
+              stroke="url(#orangeGrad)" 
+              stroke-width="1.8"
+              stroke-linejoin="round"/>
+        
+        <!-- Top section -->
+        <path d="M 0 -24 L 9 -16 L 9 -8 L 0 -16 L -9 -8 L -9 -16 Z" 
+              fill="none" 
+              stroke="url(#orangeGrad)" 
+              stroke-width="1.8"
+              stroke-linejoin="round"/>
+        
+        <!-- Bottom section -->
+        <path d="M 0 16 L 9 8 L 9 16 L 0 24 L -9 16 L -9 8 Z" 
+              fill="none" 
+              stroke="url(#orangeGrad)" 
+              stroke-width="1.8"
+              stroke-linejoin="round"/>
+        
+        <!-- Left section -->
+        <path d="M -9 -8 L 0 -16 L 0 -24 L -9 -16 L -15.6 -4 L -15.6 4 Z" 
+              fill="none" 
+              stroke="url(#orangeGrad)" 
+              stroke-width="1.8"
+              stroke-linejoin="round"/>
+        
+        <!-- Right section -->
+        <path d="M 9 -8 L 15.6 4 L 15.6 -4 L 9 -16 L 0 -24 L 0 -16 Z" 
+              fill="none" 
+              stroke="url(#orangeGrad)" 
+              stroke-width="1.8"
+              stroke-linejoin="round"/>
+      </g>
+      
+      <!-- Central pentagon highlight -->
+      <path d="M 0 -10 L 6 -3 L 3.6 8 L -3.6 8 L -6 -3 Z" 
+            fill="url(#goldGrad)" 
+            opacity="0.5"/>
+      
+      <!-- Subtle shine effect -->
+      <ellipse cx="-8" cy="-10" rx="6" ry="12" fill="white" opacity="0.15" transform="rotate(-30)"/>
+    </g>
+    
+    <!-- Premium "DnD" Typography -->
+    <g transform="translate(90, 118)">
+      <!-- First "D" -->
+      <g>
+        <text x="-32" y="0" 
+              font-family="'Inter', 'SF Pro Display', -apple-system, sans-serif" 
+              font-size="40" 
+              font-weight="800" 
+              text-anchor="middle" 
+              fill="url(#orangeGrad)" 
+              letter-spacing="-2.5px" 
+              filter="url(#textShadow)"
+              style="font-variation-settings: 'wght' 800;">D</text>
+        <!-- Premium accent dot -->
+        <circle cx="-24" cy="-10" r="3.5" fill="url(#goldGrad)" filter="url(#glow)"/>
+      </g>
+      
+      <!-- "n" -->
+      <text x="0" y="0" 
+            font-family="'Inter', 'SF Pro Display', -apple-system, sans-serif" 
+            font-size="40" 
+            font-weight="800" 
+            text-anchor="middle" 
+            fill="url(#orangeGrad)" 
+            letter-spacing="-2.5px" 
+            filter="url(#textShadow)"
+            style="font-variation-settings: 'wght' 800;">n</text>
+      
+      <!-- Second "D" -->
+      <g>
+        <text x="32" y="0" 
+              font-family="'Inter', 'SF Pro Display', -apple-system, sans-serif" 
+              font-size="40" 
+              font-weight="800" 
+              text-anchor="middle" 
+              fill="url(#orangeGrad)" 
+              letter-spacing="-2.5px" 
+              filter="url(#textShadow)"
+              style="font-variation-settings: 'wght' 800;">D</text>
+        <!-- Premium accent dot -->
+        <circle cx="40" cy="-10" r="3.5" fill="url(#goldGrad)" filter="url(#glow)"/>
+      </g>
+    </g>
+    
+    <!-- Professional Underline with Football Pattern -->
+    <g transform="translate(90, 135)">
+      <!-- Main underline -->
+      <line x1="-40" y1="0" x2="40" y2="0" 
+            stroke="url(#orangeGrad)" 
+            stroke-width="3.5" 
+            stroke-linecap="round" 
+            opacity="0.9"/>
+      
+      <!-- Decorative football pattern dots -->
+      <circle cx="-25" cy="0" r="2.5" fill="url(#goldGrad)" opacity="0.9"/>
+      <circle cx="0" cy="0" r="2.5" fill="url(#goldGrad)" opacity="0.9"/>
+      <circle cx="25" cy="0" r="2.5" fill="url(#goldGrad)" opacity="0.9"/>
+    </g>
+  </g>
+</svg>

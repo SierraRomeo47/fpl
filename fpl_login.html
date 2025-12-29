@@ -1,0 +1,764 @@
+
+
+
+
+<!DOCTYPE html>
+
+<html data-sentry-dsn="" data-sentry-environment="development" data-sentry-whitelist="cdn.pulselive.com,users.premierleague.com,plusers.pldev.app">
+<head>
+<!-- OneTrust Cookies Consent Notice start for premierleague.com -->
+<script charset="UTF-8" data-domain-script="b3424e2a-1add-493c-a8de-2615febb9f71" src="https://cdn-ukwest.onetrust.com/scripttemplates/otSDKStub.js" type="text/javascript"></script>
+<script type="text/javascript">
+function OptanonWrapper() { }
+</script>
+<!-- OneTrust Cookies Consent Notice end for premierleague.com -->
+<meta charset="utf-8"/>
+<link href="//www.premierleague.com/resources/v1.0.7/i/favicon/favicon.ico" rel="icon"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta content="#38003C" name="theme-color"/>
+<meta content="For all the latest Premier League news, visit the official website of the Premier League." name="description"/>
+<link href="//www.premierleague.com/resources/v1.0.7/i/favicon/apple-touch-icon-152x152.png" rel="apple-touch-icon"/>
+<title>premierleague.com User Portal</title>
+<link href="/static/libsass/plusers/dist/css/pluser.css" rel="stylesheet"/>
+<link href="//www.premierleague.com/resources/v1.0.7/ism/css/ism.css" rel="stylesheet"/>
+<!-- Google Tag Manager -->
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=GTM-WMRM6GQ"></script>
+<script>
+        (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+        })(window,document,'script','dataLayer','GTM-WMRM6GQ');
+</script>
+<!-- End Google Tag Manager -->
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe height="0" src="https://www.googletagmanager.com/ns.html?id=GTM-WMRM6GQ" style="display:none;visibility:hidden" width="0"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<script>
+    if(!window.PULSE){window.PULSE={};}
+    window.PULSE.envPaths = {"label":"production","domain":["web25.premierleague.pulselive.com","www.premierleague.com"],"cdn":"/resources/v1.0.7/","api":"//api.premierleague.com","sso":{"authUrl":"https://account.premierleague.com","apiUrl":"https://api.pingone.eu/v1","environmentId":"68340de1-dfb9-412e-937c-20172986d129","clientId":"1f243d70-a140-4035-8c41-341f5af5aa12","disableAccountClientId":"0d9d0891-5a51-4f9e-b30d-46d76049e0ab","updateEmailClientId":"10a4ca84-8aca-497f-9a08-10e36e28c7a8","u13AppId":"c2906aae-cb6e-44d1-838f-0d3565380c06","pairing2FAClientId":"313a7ebb-d02c-41a9-bb3c-c97d21f3ada7","unpairing2FAClientId":"ff025e81-6b69-4082-a4fe-176632f4a34d"},"preferences":"https://api.premierleague.com/preferences/user/preferences","copilotApi":"https://ai.premierleaguedigital.com/api/companion/v1/prompt/","contentPersonalisationApi":"https://api.premierleague.com/personalisation","firebase":{"apiKey":"AIzaSyA-IEfY0MbeRPZlQkaxq-tytyzM7buoHYs","authDomain":"premier-league-app-v2-prod.firebaseapp.com","projectId":"premier-league-app-v2-prod","storageBucket":"premier-league-app-v2-prod.firebasestorage.app","messagingSenderId":"275434933608","appId":"1:275434933608:web:965f404a62d6a953b21add","measurementId":"G-X3CFNBHB32"}};
+</script>
+<!-- Start datadome -->
+<script>
+    !function (a, b, c, d, e, f){
+      a.ddjskey = e;
+      a.ddoptions = f || null;
+      var m = b.createElement(c), n = b.getElementsByTagName(c)[0];
+      m.async = 1, m.src = d, n.parentNode.insertBefore(m, n);
+    }(window,
+      document,
+      "script",
+      "https://js.datadome.co/tags.js",
+      "5DE3E6A7D87D0E4E8979F7A1C7BD73",
+      { ajaxListenerPath: true }
+    );
+  </script>
+<!-- End datadome -->
+<header>
+<input id="prodVersion" type="hidden" value="v1.0.7"/>
+<script>
+            window.RESOURCES_VERSION = 'v1.0.7';
+    		console.info( '%c Version: ' + window.RESOURCES_VERSION + ' ', "background-color: #37003c; color: #ffffff;")
+            window.ACTIVE_PL_MATCHWEEK_ID = '1';
+            window.ACTIVE_PL_SEASON_ID = '2025';
+    		window.SDP_API = 'https://sdp-prem-prod.premier-league-prod.pulselive.com/api';
+        </script>
+<!--  container for global Sheet and Modal components  -->
+<div class="sheet-and-modal-container">
+<div class="js-modal-container"></div>
+<div class="toast-container js-toast-container"></div>
+<div class="js-sign-up-sheet"></div>
+<div class="js-welcome-sheet"></div>
+</div>
+<nav class="main-navigation-wrapper">
+<div class="top-nav" data-widget="navigation/top-nav">
+<ul class="top-nav__menu js-main-nav u-hide-tablet">
+<li class="top-nav__menu-item">
+<a class="top-nav__menu-link" href="https://www.premierleague.com/en/">
+                        Premier League
+                    </a>
+</li>
+<li class="top-nav__menu-item">
+<a class="top-nav__menu-link" href="https://shop.premierleague.com/gb/en/home/">
+                        Shop
+                    </a>
+</li>
+<li class="top-nav__menu-item">
+<a class="top-nav__menu-link" href="https://www.premierleague.com/en/about">
+                        About Us
+                    </a>
+</li>
+<li class="top-nav__menu-item">
+<a class="top-nav__menu-link" href="https://www.premierleague.com/en/footballandcommunity">
+                        Football &amp; Community
+                    </a>
+</li>
+<li class="top-nav__menu-item">
+<a class="top-nav__menu-link" href="https://www.premierleague.com/en/events">
+                        Events
+                    </a>
+</li>
+<li class="top-nav__menu-item">
+<a class="top-nav__menu-link" href="https://www.premierleague.com/en/other-competitions">
+                        Other Competitions
+                    </a>
+</li>
+<li class="top-nav__menu-item">
+<a class="top-nav__menu-link" href="https://www.premierleague.com/en/media/statements">
+                        Media
+                    </a>
+</li>
+</ul>
+<div class="top-nav__more-dropdown js-top-nav-more">
+<button class="top-nav__nav-button button button--text button--medium js-dropdown-button">
+            More
+	<svg aria-hidden="true" class="icon">
+<use xlink:href="/resources/v1.0.7/i/svg-output/icons.svg#icn-chevron-down" xmlns:xlink="http://www.w3.org/1999/xlink"></use>
+</svg>
+</button>
+<ul class="top-nav__dropdown js-more-dropdown js-dropdown-menu"></ul>
+</div>
+<div class="top-nav__partner top-nav__partner--copilot">
+<img alt="Copilot logo" class="top-nav__partner-image" src=""/>
+</div>
+</div>
+<div class="main-nav" data-quick-links-playlist-id="4299080" data-widget="navigation/main-nav">
+<button aria-label="Menu" class="main-nav__menu-button button button--filled-tonal js-menu-button" data-testid="menuButton"></button>
+<a aria-label="Premier League Homepage" class="main-nav__logo" href="/en"></a>
+<ul class="main-nav__nav js-main-nav">
+<li class="main-nav__nav-item js-main-nav-item">
+<a class="main-nav__nav-item-link button button--text button--medium" href="https://www.premierleague.com/en/matches">
+                        Matches
+                    </a>
+</li>
+<li class="main-nav__nav-item js-main-nav-item">
+<a class="main-nav__nav-item-link button button--text button--medium" href="https://www.premierleague.com/en/tables">
+                        Table
+                    </a>
+</li>
+<li class="main-nav__nav-item js-main-nav-item">
+<a class="main-nav__nav-item-link button button--text button--medium" href="https://www.premierleague.com/en/stats">
+                        Statistics
+                    </a>
+</li>
+<li class="main-nav__nav-item js-main-nav-item">
+<button class="main-nav__nav-button button button--text button--medium js-dropdown-button">
+                        Fantasy
+	<svg aria-hidden="true" class="icon">
+<use xlink:href="/resources/v1.0.7/i/svg-output/icons.svg#icn-chevron-down" xmlns:xlink="http://www.w3.org/1999/xlink"></use>
+</svg>
+</button>
+<ul class="main-nav__dropdown js-dropdown-menu">
+<li class="main-nav__dropdown-item">
+<a class="main-nav__dropdown-item-link menu-item" href="https://fantasy.premierleague.com/">
+                                        Fantasy Premier League
+                                    </a>
+</li>
+<li class="main-nav__dropdown-item">
+<a class="main-nav__dropdown-item-link menu-item" href="https://draft.premierleague.com/">
+                                        Fantasy Draft
+                                    </a>
+</li>
+<li class="main-nav__dropdown-item">
+<a class="main-nav__dropdown-item-link menu-item" href="https://fplchallenge.premierleague.com/home">
+                                        Fantasy Challenge
+                                    </a>
+</li>
+</ul>
+</li>
+<li class="main-nav__nav-item js-main-nav-item">
+<a class="main-nav__nav-item-link button button--text button--medium" href="https://www.premierleague.com/en/news">
+                        News
+                    </a>
+</li>
+<li class="main-nav__nav-item js-main-nav-item">
+<a class="main-nav__nav-item-link button button--text button--medium" href="https://www.premierleague.com/en/players">
+                        Players
+                    </a>
+</li>
+<li class="main-nav__nav-item js-main-nav-item">
+<a class="main-nav__nav-item-link button button--text button--medium" href="https://www.premierleague.com/en/clubs">
+                        Clubs
+                    </a>
+</li>
+<li class="main-nav__nav-item js-main-nav-item">
+<a class="main-nav__nav-item-link button button--text button--medium" href="https://www.premierleague.com/en/video">
+                        Video
+                    </a>
+</li>
+</ul>
+<div class="main-nav__more-dropdown js-main-nav-more">
+<button class="main-nav__nav-button button button--text button--medium js-dropdown-button">
+            More
+	<svg aria-hidden="true" class="icon">
+<use xlink:href="/resources/v1.0.7/i/svg-output/icons.svg#icn-chevron-down" xmlns:xlink="http://www.w3.org/1999/xlink"></use>
+</svg>
+</button>
+<ul class="main-nav__dropdown js-more-dropdown js-dropdown-menu"></ul>
+</div>
+<div class="main-nav__action-menu main-nav__action-menu--updated-position">
+<div class="copilot copilot--trigger-wrapper" data-widget="copilot-trigger/copilot-trigger"></div>
+<button aria-label="Search" class="main-nav__search-button button button--filled-tonal js-search-button" data-testid="searchButton"></button>
+<div aria-label="Profile" class="profile-button js-user-profile" data-testid="profileButton"></div>
+</div>
+</div>
+<div class="side-nav js-side-nav" data-widget="navigation/side-nav">
+<div class="side-nav__overlay js-overlay"></div>
+<div class="side-nav__menu js-side-nav-menu">
+<div class="side-nav__header">
+<a aria-label="Premier League Homepage" class="side-nav__logo" href="/en"></a>
+<button aria-label="Close" class="side-nav__close-button button button--text js-close-button"></button>
+</div>
+<div class="side-nav__menu-wrapper">
+<div class="side-nav__container side-nav__container--search js-side-nav-container">
+<div class="sso-user" data-d2c="" data-widget="sso/sso-user">
+</div>
+<div class="side-nav-menu" tabindex="-1">
+<ul class="side-nav-menu__menu js-menu">
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="0" href="https://www.premierleague.com/en/">
+                        Home
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="1" href="https://www.premierleague.com/en/matches">
+                        Matches
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="2" href="https://www.premierleague.com/en/tables">
+                        Table
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="3" href="https://www.premierleague.com/en/stats">
+                        Statistics
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<button class="side-nav-menu__sub-menu-item menu-item js-sub-menu-item" data-nav-index="4" data-target="Fantasy&amp;Gaming">
+                        Fantasy &amp; Gaming
+                        
+	<svg aria-hidden="true" class="icon">
+<use xlink:href="/resources/v1.0.7/i/svg-output/icons.svg#icn-chevron-right" xmlns:xlink="http://www.w3.org/1999/xlink"></use>
+</svg>
+</button>
+<div class="side-nav-menu__sub-menu-container js-sub-menu" data-sub-menu="Fantasy&amp;Gaming">
+<div class="side-nav__header side-nav__header--sub-menu js-sub-menu-header">
+<button aria-label="Back" class="side-nav__back-button button button--text js-back-button"></button>
+<button aria-label="Close" class="side-nav__close-button button button--text js-close-button"></button>
+</div>
+<span class="side-nav-menu__sub-menu-title">
+                                Fantasy &amp; Gaming
+                            </span>
+<ul class="side-nav-menu__sub-menu">
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" href="https://www.premierleague.com/en/fantasy">
+                                                Fantasy Premier League
+                                            </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" href="https://draft.premierleague.com/">
+                                                FPL Draft
+                                            </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" href="https://fplchallenge.premierleague.com/home">
+                                                Fantasy Challenge
+                                            </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" href="https://www.premierleague.com/en/quizzes">
+                                                Quizzes
+                                            </a>
+</li>
+</ul>
+</div>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<button class="side-nav-menu__sub-menu-item menu-item js-sub-menu-item" data-nav-index="5" data-target="News">
+                        News
+                        
+	<svg aria-hidden="true" class="icon">
+<use xlink:href="/resources/v1.0.7/i/svg-output/icons.svg#icn-chevron-right" xmlns:xlink="http://www.w3.org/1999/xlink"></use>
+</svg>
+</button>
+<div class="side-nav-menu__sub-menu-container js-sub-menu" data-sub-menu="News">
+<div class="side-nav__header side-nav__header--sub-menu js-sub-menu-header">
+<button aria-label="Back" class="side-nav__back-button button button--text js-back-button"></button>
+<button aria-label="Close" class="side-nav__close-button button button--text js-close-button"></button>
+</div>
+<span class="side-nav-menu__sub-menu-title">
+                                News
+                            </span>
+<ul class="side-nav-menu__sub-menu">
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" href="https://www.premierleague.com/en/news">
+                                                News
+                                            </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" href="https://www.premierleague.com/en/fantasy-news">
+                                                Fantasy News
+                                            </a>
+</li>
+</ul>
+</div>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<button class="side-nav-menu__sub-menu-item menu-item js-sub-menu-item" data-nav-index="6" data-target="Video&amp;Audio">
+                        Video &amp; Audio
+                        
+	<svg aria-hidden="true" class="icon">
+<use xlink:href="/resources/v1.0.7/i/svg-output/icons.svg#icn-chevron-right" xmlns:xlink="http://www.w3.org/1999/xlink"></use>
+</svg>
+</button>
+<div class="side-nav-menu__sub-menu-container js-sub-menu" data-sub-menu="Video&amp;Audio">
+<div class="side-nav__header side-nav__header--sub-menu js-sub-menu-header">
+<button aria-label="Back" class="side-nav__back-button button button--text js-back-button"></button>
+<button aria-label="Close" class="side-nav__close-button button button--text js-close-button"></button>
+</div>
+<span class="side-nav-menu__sub-menu-title">
+                                Video &amp; Audio
+                            </span>
+<ul class="side-nav-menu__sub-menu">
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" href="https://www.premierleague.com/en/video">
+                                                Latest Video
+                                            </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" href="https://www.premierleague.com/en/video/series">
+                                                Video Series
+                                            </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" href="https://www.premierleague.com/en/video/the-archive">
+                                                Archive
+                                            </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" href="https://www.premierleague.com/en/news/1820580/off-the-bench-can-you-ignore-cunha-in-fpl">
+                                                FPL Podcast
+                                            </a>
+</li>
+</ul>
+</div>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="7" href="https://www.premierleague.com/en/clubs">
+                        Clubs
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="8" href="https://www.premierleague.com/en/players">
+                        Players
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="9" href="https://www.premierleague.com/en/transfers">
+                        Transfers
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="10" href="https://www.premierleague.com/en/tickets">
+                        Tickets
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="11" href="https://www.premierleague.com/en/news/4345793/sign-up-now-to-mypremier-league/">
+                        myPremierLeague
+                    </a>
+</li>
+</ul>
+</div>
+</div>
+<hr class="divider divider--middle-inset"/>
+<div class="side-nav__container side-nav__container--menu js-side-nav-container">
+<div class="side-nav-menu" tabindex="-1">
+<span class="side-nav-menu__header">
+            More From the PL
+        </span>
+<ul class="side-nav-menu__menu js-menu">
+<li class="side-nav-menu__menu-item js-menu-item">
+<button class="side-nav-menu__sub-menu-item menu-item js-sub-menu-item js-club-sites-button" data-nav-index="0" data-target="ClubWebsites">
+                        Club Websites
+                        
+	<svg aria-hidden="true" class="icon">
+<use xlink:href="/resources/v1.0.7/i/svg-output/icons.svg#icn-chevron-right" xmlns:xlink="http://www.w3.org/1999/xlink"></use>
+</svg>
+</button>
+<div class="side-nav-menu__sub-menu-container js-sub-menu" data-sub-menu="ClubWebsites">
+<div class="side-nav__header side-nav__header--sub-menu js-sub-menu-header">
+<button aria-label="Back" class="side-nav__back-button button button--text js-back-button"></button>
+<button aria-label="Close" class="side-nav__close-button button button--text js-close-button"></button>
+</div>
+<span class="side-nav-menu__sub-menu-title">
+                                Club Websites
+                            </span>
+<div class="side-nav-menu__sub-menu js-sub-menu-clubs" data-nav-index="0"></div>
+</div>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="1" href="https://www.premierleague.com/en/">
+                        Premier League
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="2" href="https://shop.premierleague.com/gb/en/home/">
+                        Shop
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="3" href="https://www.premierleague.com/en/about">
+                        About Us
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="4" href="https://www.premierleague.com/en/footballandcommunity">
+                        Football &amp; Community
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="5" href="https://www.premierleague.com/en/events">
+                        Events
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="6" href="https://www.premierleague.com/en/other-competitions">
+                        Other Competitions
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="7" href="https://www.premierleague.com/en/media/statements">
+                        Media
+                    </a>
+</li>
+</ul>
+</div>
+</div>
+<hr class="divider divider--middle-inset"/>
+<div class="side-nav__container side-nav__container--promo js-side-nav-container">
+<!-- 
+The following has evaluated to null or missing:
+==> menuItem.content.additionalCssClasses  [in template "Language Switcher" at line 61, column 42]
+
+----
+Tip: It's the step after the last dot that caused this error, not those before it.
+----
+Tip: If the failing expression is known to legally refer to something that's sometimes null or missing, either specify a default value like myOptionalVar!myDefault, or use <#if myOptionalVar??>when-present<#else>when-missing</#if>. (These only cover the last step of the expression; to cover the whole expression, use parenthesis: (myOptionalVar.foo)!myDefault, (myOptionalVar.foo)??
+----
+
+----
+FTL stack trace ("~" means nesting-related):
+	- Failed at: #assign newLanguagePath = "/" + menuI...  [in template "Language Switcher" in macro "listMenuItems" at line 61, column 9]
+	- Reached through: @listMenuItems menuItems=menu.children  [in template "Language Switcher" at line 83, column 17]
+----
+ -->
+<div class="side-nav-menu" tabindex="-1">
+<span class="side-nav-menu__header">
+            Privacy &amp; Support
+        </span>
+<ul class="side-nav-menu__menu js-menu">
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="0" href="https://www.premierleague.com/en/about/contact-us">
+                        Contact Us
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="1" href="https://www.premierleague.com/en/about/faq">
+                        FAQs
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="2" href="https://www.premierleague.com/en/terms-and-conditions">
+                        Terms and Conditions
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="3" href="https://www.premierleague.com/en/privacy-policy">
+                        Privacy Policy
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="4" href="https://www.premierleague.com/en/privacy-policy">
+                        Cookie Policy
+                    </a>
+</li>
+</ul>
+</div>
+</div>
+<hr class="divider divider--middle-inset"/>
+<div class="side-nav__container side-nav__container--more js-side-nav-container">
+<div class="side-nav-menu" tabindex="-1">
+<span class="side-nav-menu__header">
+            Premier League Channels
+        </span>
+<ul class="side-nav-menu__menu js-menu">
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="0" href="https://www.tiktok.com/@premierleague">
+                        Tik Tok
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="1" href="https://www.instagram.com/premierleague">
+                        Instagram
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="2" href="https://www.youtube.com/premierleague">
+                        Youtube
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="3" href="https://preml.ge/plwhatsapp">
+                        Whatsapp
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="4" href="https://www.snapchat.com/add/premierleague?">
+                        Snapchat
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="5" href="https://twitter.com/premierleague">
+                        X
+                    </a>
+</li>
+<li class="side-nav-menu__menu-item js-menu-item">
+<a class="side-nav-menu__menu-link menu-item js-link" data-nav-index="6" href="https://www.facebook.com/premierleague">
+                        Facebook
+                    </a>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="js-fan-passport" data-widget="fan-passport/fan-passport">
+</div>
+</nav>
+</header>
+<main class="ism" id="mainContent" tabindex="0">
+            
+			<header class="pageHero">
+<div class="wrapper col-12">
+<h1 class="pageTitle">Updating</h1>
+</div>
+</header>
+            
+            
+            <div class="ism-container">
+<div class="wrapper">
+<div id="ismr-content">
+<h2 class="ism-copy">Getting ready for 2025/26</h2>
+<p>We're currently carrying out essential updates to prepare for the 2025/26 Premier League season.</p>
+</div>
+</div>
+</div>
+</main>
+<footer class="main-footer">
+<input id="prodVersion" type="hidden" value="v1.0.7"/>
+<div class="footer-sponsors" data-widget="footer/footer-sponsors">
+<ul class="footer-sponsors__list js-sponsors-list">
+<li class="footer-sponsors__sponsor footer-sponsors__sponsor--first">
+<a class="footer-sponsors__link js-sponsor" data-sponsor-name="EA" href="https://www.ea.com/en-gb/games/ea-sports-fc" target="_blank">
+<div class="footer-sponsors__image-wrapper js-sponsor-logo">
+<img class="footer-sponsors__sponsor-image js-themed-logo" data-sponsor-height="145" data-sponsor-logo="ea.png" data-sponsor-logo-url="https://resources.premierleague.pulselive.com/photo-resources/2025/06/27/638d3687-1a3c-4619-9895-eb560b59ba79/ea.png" data-sponsor-width="218"/>
+</div>
+<span class="footer-sponsors__sponsor-text">Lead Partner</span>
+</a>
+</li>
+<li class="footer-sponsors__sponsor">
+<a class="footer-sponsors__link js-sponsor" data-sponsor-name="Barclays" href="https://www.home.barclays" target="_blank">
+<div class="footer-sponsors__image-wrapper js-sponsor-logo">
+<picture class="footer-sponsors__sponsor-image picture">
+<source class="footer-sponsors__image" media="" srcset="https://resources.premierleague.pulselive.com/photo-resources/2023/01/26/11fe030b-2b2e-41ed-8f34-be72a8403ea0/Barclays_Sponsor.png?width=115&amp;height=40, https://resources.premierleague.pulselive.com/photo-resources/2023/01/26/11fe030b-2b2e-41ed-8f34-be72a8403ea0/Barclays_Sponsor.png?width=230&amp;height=80 2x"/>
+<img alt="Barclays_Sponsor" class="footer-sponsors__image picture__img" src="https://resources.premierleague.pulselive.com/photo-resources/2023/01/26/11fe030b-2b2e-41ed-8f34-be72a8403ea0/Barclays_Sponsor.png?width=115&amp;height=40"/>
+</picture>
+</div>
+<span class="footer-sponsors__sponsor-text">Official Bank</span>
+</a>
+</li>
+<li class="footer-sponsors__sponsor">
+<a class="footer-sponsors__link js-sponsor" data-sponsor-name="Coca Cola" href="https://www.coca-cola.com/gb/en" target="_blank">
+<div class="footer-sponsors__image-wrapper js-sponsor-logo">
+<picture class="footer-sponsors__sponsor-image picture">
+<source class="footer-sponsors__image" media="" srcset="https://resources.premierleague.pulselive.com/photo-resources/2025/05/31/6e1736ce-16e4-48d4-bd0d-669d2860837a/CocaCola_2526_Partner.png?width=115&amp;height=40, https://resources.premierleague.pulselive.com/photo-resources/2025/05/31/6e1736ce-16e4-48d4-bd0d-669d2860837a/CocaCola_2526_Partner.png?width=230&amp;height=80 2x"/>
+<img alt="CocaCola_2526_Partner" class="footer-sponsors__image picture__img" src="https://resources.premierleague.pulselive.com/photo-resources/2025/05/31/6e1736ce-16e4-48d4-bd0d-669d2860837a/CocaCola_2526_Partner.png?width=115&amp;height=40"/>
+</picture>
+</div>
+<span class="footer-sponsors__sponsor-text">Official Soft Drink</span>
+</a>
+</li>
+<li class="footer-sponsors__sponsor">
+<a class="footer-sponsors__link js-sponsor" data-sponsor-name="Guinness" href="https://www.guinness.com/en-gb" target="_blank">
+<div class="footer-sponsors__image-wrapper js-sponsor-logo">
+<img class="footer-sponsors__sponsor-image js-themed-logo" data-sponsor-height="145" data-sponsor-logo="guinness.svg" data-sponsor-logo-url="https://resources.premierleague.pulselive.com/photo-resources/2024/06/12/d5dcc7f8-fbaf-4f12-883b-04620b08506f/Guinness_Partner.jpg" data-sponsor-width="218"/>
+</div>
+<span class="footer-sponsors__sponsor-text">Official Beer</span>
+</a>
+</li>
+<li class="footer-sponsors__sponsor">
+<a class="footer-sponsors__link js-sponsor" data-sponsor-name="Microsoft" href="https://unlocked.microsoft.com/premier-league" target="_blank">
+<div class="footer-sponsors__image-wrapper js-sponsor-logo">
+<img class="footer-sponsors__sponsor-image js-themed-logo" data-sponsor-height="40" data-sponsor-logo="MSFT.png" data-sponsor-logo-url="https://resources.premierleague.pulselive.com/photo-resources/2025/06/27/67c60e13-54c8-4e65-b7a3-03e448887979/MSFT.png" data-sponsor-width="115"/>
+</div>
+<span class="footer-sponsors__sponsor-text">Official Cloud, Data &amp; AI Partner</span>
+</a>
+</li>
+<li class="footer-sponsors__sponsor">
+<a class="footer-sponsors__link js-sponsor" data-sponsor-name="Puma" href="https://puma.com/" target="_blank">
+<div class="footer-sponsors__image-wrapper js-sponsor-logo">
+<picture class="footer-sponsors__sponsor-image picture">
+<source class="footer-sponsors__image" media="" srcset="https://resources.premierleague.pulselive.com/photo-resources/2025/06/27/e83b47b0-5e4e-48e1-9cae-a6e4f931c576/puma.png?width=217.5&amp;height=145, https://resources.premierleague.pulselive.com/photo-resources/2025/06/27/e83b47b0-5e4e-48e1-9cae-a6e4f931c576/puma.png?width=435&amp;height=290 2x"/>
+<img alt="puma" class="footer-sponsors__image picture__img" src="https://resources.premierleague.pulselive.com/photo-resources/2025/06/27/e83b47b0-5e4e-48e1-9cae-a6e4f931c576/puma.png?width=217.5&amp;height=145"/>
+</picture>
+</div>
+<span class="footer-sponsors__sponsor-text">Official Ball</span>
+</a>
+</li>
+<li class="footer-sponsors__sponsor">
+<a class="footer-sponsors__link js-sponsor" data-sponsor-name="Avery Dennison" href="https://sport.averydennison.com/" target="_blank">
+<div class="footer-sponsors__image-wrapper js-sponsor-logo">
+<img class="footer-sponsors__sponsor-image js-themed-logo" data-sponsor-height="45" data-sponsor-logo="avery-dennison.svg" data-sponsor-logo-url="https://resources.premierleague.pulselive.com/photo-resources/2023/01/26/29bca766-5224-4166-b20b-3aac01e67fb9/AD_Sponsor.png" data-sponsor-width="140"/>
+</div>
+<span class="footer-sponsors__sponsor-text">Official Licensee</span>
+</a>
+</li>
+<li class="footer-sponsors__sponsor">
+<a class="footer-sponsors__link js-sponsor" data-sponsor-name="Football Manager" href="https://www.footballmanager.com/" target="_blank">
+<div class="footer-sponsors__image-wrapper js-sponsor-logo">
+<img class="footer-sponsors__sponsor-image js-themed-logo" data-sponsor-height="40" data-sponsor-logo="football-manager" data-sponsor-logo-url="https://resources.premierleague.pulselive.com/photo-resources/2024/06/10/6547dca8-babf-49e5-95d5-ec4bb1744248/FootballManager_Logo.png" data-sponsor-width="115"/>
+</div>
+<span class="footer-sponsors__sponsor-text">Official Licensee</span>
+</a>
+</li>
+<li class="footer-sponsors__sponsor">
+<a class="footer-sponsors__link js-sponsor" data-sponsor-name="Rezzil" href="https://rezzil.com/" target="_blank">
+<div class="footer-sponsors__image-wrapper js-sponsor-logo">
+<img class="footer-sponsors__sponsor-image js-themed-logo" data-sponsor-height="40" data-sponsor-logo="rezzil" data-sponsor-logo-url="https://resources.premierleague.pulselive.com/photo-resources/2024/06/01/f620e214-5330-4021-b382-183e6b564a64/Rezzil_Logo.png" data-sponsor-width="115"/>
+</div>
+<span class="footer-sponsors__sponsor-text">Official Licensee</span>
+</a>
+</li>
+<li class="footer-sponsors__sponsor">
+<a class="footer-sponsors__link js-sponsor" data-sponsor-name="Sorare" href="https://sorare.com" target="_blank">
+<div class="footer-sponsors__image-wrapper js-sponsor-logo">
+<img class="footer-sponsors__sponsor-image js-themed-logo" data-sponsor-height="40" data-sponsor-logo="sorare" data-sponsor-logo-url="https://resources.premierleague.pulselive.com/photo-resources/2024/10/28/cf59f725-738f-4a56-b9cf-5e730101f9d1/SorareSponsor_New.png" data-sponsor-width="115"/>
+</div>
+<span class="footer-sponsors__sponsor-text">Official Licensee</span>
+</a>
+</li>
+<li class="footer-sponsors__sponsor">
+<a class="footer-sponsors__link js-sponsor" data-sponsor-name="Topps" href="https://uk.topps.com/" target="_blank">
+<div class="footer-sponsors__image-wrapper js-sponsor-logo">
+<picture class="footer-sponsors__sponsor-image picture">
+<source class="footer-sponsors__image" media="" srcset="https://resources.premierleague.pulselive.com/photo-resources/2025/05/31/5b1c886f-e3b5-461d-b764-054b0ccffcb9/Topps_2526_Partner.png?width=115&amp;height=40, https://resources.premierleague.pulselive.com/photo-resources/2025/05/31/5b1c886f-e3b5-461d-b764-054b0ccffcb9/Topps_2526_Partner.png?width=230&amp;height=80 2x"/>
+<img alt="Topps_2526_Partner" class="footer-sponsors__image picture__img" src="https://resources.premierleague.pulselive.com/photo-resources/2025/05/31/5b1c886f-e3b5-461d-b764-054b0ccffcb9/Topps_2526_Partner.png?width=115&amp;height=40"/>
+</picture>
+</div>
+<span class="footer-sponsors__sponsor-text">Official Licensee</span>
+</a>
+</li>
+</ul>
+</div>
+<div class="footer-navigation">
+<ul class="footer-navigation__list">
+<li class="footer-navigation__item">
+<a class="menu-item" href="https://www.premierleague.com#">
+                        Premier League
+                    </a>
+</li>
+<li class="footer-navigation__item">
+<a class="menu-item" href="https://fantasy.premierleague.com/">
+                        Fantasy
+                    </a>
+</li>
+<li class="footer-navigation__item">
+<a class="menu-item" href="https://www.premierleague.com/en/matches">
+                        Matches
+                    </a>
+</li>
+<li class="footer-navigation__item">
+<a class="menu-item" href="https://www.premierleague.com/en/tables">
+                        Table
+                    </a>
+</li>
+<li class="footer-navigation__item">
+<a class="menu-item" href="https://www.premierleague.com/en/stats">
+                        Statistics
+                    </a>
+</li>
+<li class="footer-navigation__item">
+<a class="menu-item" href="https://www.premierleague.com/en/news">
+                        Latest News
+                    </a>
+</li>
+<li class="footer-navigation__item">
+<a class="menu-item" href="https://www.premierleague.com/en/video">
+                        Latest Video
+                    </a>
+</li>
+<li class="footer-navigation__item">
+<a class="menu-item" href="https://www.premierleague.com/en/clubs">
+                        Clubs
+                    </a>
+</li>
+<li class="footer-navigation__item">
+<a class="menu-item" href="https://www.premierleague.com/en/players">
+                        Players
+                    </a>
+</li>
+</ul>
+</div>
+<div class="footer-corporate" data-widget="footer/footer-corporate">
+<span class="footer-corporate__copyright">© PREMIER LEAGUE 2025</span>
+<ul class="footer-corporate__menu" role="menu">
+<li class="footer-corporate__item">
+<strong class="footer-corporate__text">
+                                About Premier League
+                            </strong>
+</li>
+<li class="footer-corporate__item">
+<strong class="footer-corporate__text js-club-sites-button">
+                                Club Websites
+                            </strong>
+</li>
+</ul>
+<a aria-label="Premier League Homepage" class="footer-corporate__logo" href="/en"></a>
+</div>
+</footer>
+<div id="ismr-dialog"></div>
+<!-- Pulse javascript -->
+<script crossorigin="anonymous" integrity="sha256-BTlTdQO9/fascB1drekrDVkaKd9PkwBymMlHOiG+qLI=" src="https://code.jquery.com/jquery-3.4.1.slim.js"></script>
+<script>
+            import(
+                "//www.premierleague.com/resources/v1.0.7/scripts/bundle-es.min.js"
+            );
+            window.supportsDynamicImport = true;
+        </script>
+<script>
+            if (!window.supportsDynamicImport) {
+                const systemJsLoaderTag = document.createElement('script');
+                systemJsLoaderTag.src = 'https://unpkg.com/systemjs@2.0.0/dist/s.min.js';
+                systemJsLoaderTag.addEventListener('load', function () {
+                    System.import('"//www.premierleague.com/resources/v1.0.7/scripts/nomodule/bundle-system.min.js');
+                });
+                document.head.appendChild(systemJsLoaderTag);
+            }
+        </script>
+<!-- UX - RELIES ON PULSE JQUERY -->
+<script src="/static/js/ux/main.js" type="text/javascript"></script>
+
+
+
+
+
+
+
+   </body>
+</html>
