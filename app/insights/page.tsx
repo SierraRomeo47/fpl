@@ -554,7 +554,7 @@ export default function InsightsPage() {
                                         {/* Display upgrade recommendations with split cards */}
                                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                             {(() => {
-                                                const myTeamPlayerIds = new Set(myTeamPicks.map((p: any) => p.element));
+                                                const myTeamPlayerIds = new Set<number>(myTeamPicks.map((p: any) => p.element as number));
                                                 const usedUpgradeIds = new Set<number>();
                                                 
                                                 return myTeamPicks

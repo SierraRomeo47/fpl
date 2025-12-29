@@ -9,7 +9,7 @@ import { toast } from "sonner";
 export default function AuthPopupPage() {
     const [step, setStep] = useState<"waiting" | "logged_in" | "extracting" | "done">("waiting");
     const [fplWindow, setFplWindow] = useState<Window | null>(null);
-    const intervalRef = useRef<NodeJS.Timeout>();
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const openFPL = () => {
         const win = window.open("https://fantasy.premierleague.com", "FPL_Login", "width=800,height=700");
@@ -24,7 +24,9 @@ export default function AuthPopupPage() {
                 try {
                     // Try to access the window - if we can't, it might be on a different origin
                     if (win.closed) {
-                        clearInterval(intervalRef.current);
+                        if (intervalRef.current) {
+                            clearInterval(intervalRef.current);
+                        }
                         setStep("waiting");
                         toast.error("Window closed. Please try again.");
                         return;
@@ -86,7 +88,7 @@ export default function AuthPopupPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-background p-4">
             <Card className="w-full max-w-lg border-primary/20 bg-card/95 backdrop-blur-xl shadow-2xl">
                 <CardHeader className="text-center">
                     <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">

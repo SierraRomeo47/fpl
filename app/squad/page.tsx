@@ -240,7 +240,7 @@ export default function SquadPage() {
     };
 
     // Create picks map for easy lookup
-    const picksMap = new Map(picks.picks.map((pick: any) => [pick.element, pick]));
+    const picksMap = new Map<number, any>(picks.picks.map((pick: any) => [pick.element as number, pick]));
 
     // Calculate expected points for current GW
     const getExpectedPoints = (player: any) => {
@@ -477,8 +477,8 @@ export default function SquadPage() {
                                             event: e,
                                             deadline: new Date(e.deadline_time)
                                         }))
-                                        .filter(({ deadline }) => deadline > now) // Only future deadlines
-                                        .sort((a, b) => a.deadline.getTime() - b.deadline.getTime())[0]; // Sort by earliest first
+                                        .filter(({ deadline }: { deadline: Date }) => deadline > now) // Only future deadlines
+                                        .sort((a: { event: any; deadline: Date }, b: { event: any; deadline: Date }) => a.deadline.getTime() - b.deadline.getTime())[0]; // Sort by earliest first
                                     
                                     if (!upcomingDeadline) return null;
                                     
@@ -702,7 +702,7 @@ export default function SquadPage() {
                                         {/* Display upgrade recommendations with split cards */}
                                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                             {(() => {
-                                                const myTeamPlayerIds = new Set(picks.picks.map((p: any) => p.element));
+                                                const myTeamPlayerIds = new Set<number>(picks.picks.map((p: any) => p.element as number));
                                                 const usedUpgradeIds = new Set<number>();
                                                 // Use correct bank balance from database - from history.current
                                                 const currentHistory = history?.current && history.current.length > 0 
@@ -723,7 +723,7 @@ export default function SquadPage() {
                                                         // If same priority, sort by position
                                                         return a.pick.position - b.pick.position;
                                                     })
-                                                    .map(({ pick, player: currentPlayer }) => {
+                                                    .map(({ pick, player: currentPlayer }: { pick: any; player: any }) => {
                                                         // currentPlayer is already found in the sort step
                                                         if (!currentPlayer) return null;
 
@@ -865,7 +865,7 @@ export default function SquadPage() {
                                 
                                 {/* Filtered Results Count & Selection Status */}
                                 {(() => {
-                                    const myTeamPlayerIds = new Set(picks.picks.map((p: any) => p.element));
+                                    const myTeamPlayerIds = new Set<number>(picks.picks.map((p: any) => p.element as number));
                                     const filteredPlayers = elements.filter((player: any) => {
                                         // Search filter
                                         if (searchQuery) {
@@ -930,7 +930,7 @@ export default function SquadPage() {
                                 {/* Comparison Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-h-96 overflow-y-auto">
                                     {(() => {
-                                        const myTeamPlayerIds = new Set(picks.picks.map((p: any) => p.element));
+                                        const myTeamPlayerIds = new Set<number>(picks.picks.map((p: any) => p.element as number));
                                         const filteredPlayers = elements
                                             .filter((player: any) => {
                                                 // Search filter

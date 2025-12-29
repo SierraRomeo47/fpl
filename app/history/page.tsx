@@ -47,7 +47,7 @@ export default function HistoryPage() {
             if (!picksData?.picks || !selectedGW) return;
 
             const playerIds = picksData.picks.map((pick: any) => pick.element);
-            const uniquePlayerIds = Array.from(new Set(playerIds));
+            const uniquePlayerIds = Array.from(new Set(playerIds)) as number[];
 
             // Fetch histories for all players in parallel
             // We'll check for duplicates when updating state
