@@ -27,9 +27,19 @@ export async function GET(req: NextRequest) {
         });
     } catch (error: any) {
         console.error('[My Team API] Error:', error);
+        
+        // Determine appropriate status code
+        const statusCode = error?.status || 
+                          error?.message?.includes('401') ? 401 :
+                          error?.message?.includes('403') ? 403 :
+                          error?.message?.includes('404') ? 404 : 500;
+        
         return NextResponse.json(
-            { error: error.message || 'Failed to fetch my-team' },
-            { status: 500 }
+            { 
+                error: error?.message || 'Failed to fetch my-team',
+                details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+            },
+            { status: statusCode }
         );
     }
 }

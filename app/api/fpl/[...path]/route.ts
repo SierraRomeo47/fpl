@@ -6,9 +6,11 @@ export async function GET(
     req: NextRequest,
     { params }: { params: Promise<{ path: string[] }> }
 ) {
+    let endpoint = 'unknown';
+    
     try {
         const { path } = await params;
-        const endpoint = path.join('/');
+        endpoint = path.join('/');
         const url = `${FPL_BASE_URL}/${endpoint}`;
 
         console.log('[FPL Proxy] Fetching:', url);
@@ -35,9 +37,20 @@ export async function GET(
         });
     } catch (error) {
         console.error('[FPL Proxy] Error:', error);
+        
+        // Provide more detailed error information
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const statusCode = errorMessage.includes('404') ? 404 : 
+                          errorMessage.includes('403') ? 403 : 
+                          errorMessage.includes('429') ? 429 : 500;
+        
         return NextResponse.json(
-            { error: 'Failed to fetch from FPL API' },
-            { status: 500 }
+            { 
+                error: 'Failed to fetch from FPL API',
+                message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+                endpoint: endpoint
+            },
+            { status: statusCode }
         );
     }
 }

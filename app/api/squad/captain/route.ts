@@ -52,9 +52,20 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, data: result });
     } catch (error: any) {
         console.error("[Captain Change Error]:", error);
+        
+        // Determine appropriate status code
+        const statusCode = error?.status || 
+                          error?.message?.includes('401') ? 401 :
+                          error?.message?.includes('403') ? 403 :
+                          error?.message?.includes('400') ? 400 : 500;
+        
         return NextResponse.json(
-            { success: false, error: error.message || "Failed to update captain" },
-            { status: 500 }
+            { 
+                success: false, 
+                error: error?.message || "Failed to update captain",
+                details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+            },
+            { status: statusCode }
         );
     }
 }
