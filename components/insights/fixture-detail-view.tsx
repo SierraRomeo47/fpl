@@ -7,14 +7,15 @@ function getTeamBadgeUrl(teamCode: number): string {
 const getFDRBorderColor = (difficulty: number) => {
     switch (difficulty) {
         case 1:
+            return 'border-green-600 bg-green-600/20'; // Very Easy - Green
         case 2:
-            return 'border-green-600 bg-green-600/20';
+            return 'border-lime-500 bg-lime-500/20'; // Easy - Lime/Green-Yellow
         case 3:
-            return 'border-yellow-500 bg-yellow-500/20';
+            return 'border-yellow-500 bg-yellow-500/20'; // Moderate - Yellow
         case 4:
-            return 'border-orange-500 bg-orange-500/20';
+            return 'border-orange-500 bg-orange-500/20'; // Difficult - Orange
         case 5:
-            return 'border-red-600 bg-red-600/20';
+            return 'border-red-600 bg-red-600/20'; // Very Difficult - Red
         default:
             return 'border-gray-500 bg-gray-500/20';
     }
@@ -23,14 +24,15 @@ const getFDRBorderColor = (difficulty: number) => {
 const getFDRTextColor = (difficulty: number) => {
     switch (difficulty) {
         case 1:
+            return 'text-green-700'; // Very Easy - Green
         case 2:
-            return 'text-green-700';
+            return 'text-lime-700'; // Easy - Lime
         case 3:
-            return 'text-yellow-700';
+            return 'text-yellow-700'; // Moderate - Yellow
         case 4:
-            return 'text-orange-700';
+            return 'text-orange-700'; // Difficult - Orange
         case 5:
-            return 'text-red-700';
+            return 'text-red-700'; // Very Difficult - Red
         default:
             return 'text-gray-700';
     }
@@ -67,13 +69,19 @@ interface FixtureDetailViewProps {
 }
 
 export function FixtureDetailView({ teamId, fixtures, teams, currentEvent, player }: FixtureDetailViewProps) {
-    // Get next 10 fixtures for this team (excluding finished fixtures)
+    // Normalize currentEvent to a number
+    const currentEventNum = typeof currentEvent === 'number' ? currentEvent : (currentEvent?.id || 1);
+    
+    // Get next 10 fixtures for this team (excluding finished fixtures and current gameweek)
+    // Show fixtures starting from NEXT gameweek (currentEvent + 1)
     const nextFixtures = fixtures
         .filter((f: any) => {
             const isTeamInFixture = f.team_h === teamId || f.team_a === teamId;
-            const isFutureOrCurrent = f.event >= currentEvent;
-            const isNotFinished = !f.finished; // Exclude finished fixtures
-            return isTeamInFixture && isFutureOrCurrent && isNotFinished;
+            // Show fixtures from NEXT gameweek onwards (not current)
+            const isFuture = f.event > currentEventNum;
+            // Exclude finished fixtures
+            const isNotFinished = !f.finished;
+            return isTeamInFixture && isFuture && isNotFinished;
         })
         .sort((a: any, b: any) => a.event - b.event)
         .slice(0, 10);

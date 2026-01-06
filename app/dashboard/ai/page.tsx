@@ -27,7 +27,7 @@ export default async function AIInsightsPage() {
     const topTransfer = transfers[0]; // Just take best one for now
 
     return (
-        <div className="min-h-screen bg-background p-4 md:p-8 pb-24 md:pb-12">
+        <div className="min-h-screen bg-background p-4 md:p-8 pb-24 md:pb-12 pt-16">
             <div className="container-4k space-y-8">
                 <header>
                     <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tighter">

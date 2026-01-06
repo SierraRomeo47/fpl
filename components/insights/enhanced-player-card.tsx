@@ -91,11 +91,11 @@ export function EnhancedPlayerCard({
             onClick={onClick}
             className="w-full bg-card/50 border border-primary/20 rounded-lg p-4 text-left hover:bg-card/70 hover:border-primary/40 transition-all relative group"
         >
-            {/* Rank Badge */}
+            {/* Rank Badge - Top Left */}
             {rank && (
                 <Badge
                     variant="outline"
-                    className="absolute top-2 right-2 text-xs font-bold bg-primary text-primary-foreground px-2 py-0.5"
+                    className="absolute top-2 left-2 text-xs font-bold bg-primary text-primary-foreground px-2 py-0.5 z-10"
                 >
                     #{rank}
                 </Badge>

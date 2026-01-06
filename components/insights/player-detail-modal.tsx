@@ -92,7 +92,7 @@ export function PlayerDetailModal({
                 className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto"
                 onClick={onClose}
             >
-                <div className="min-h-screen p-4 flex items-start justify-center" onClick={(e) => e.stopPropagation()}>
+                <div className="min-h-screen p-2 sm:p-4 flex items-start justify-center" onClick={(e) => e.stopPropagation()}>
                     <motion.div
                         initial={{ scale: 0.88, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -103,7 +103,7 @@ export function PlayerDetailModal({
                             damping: 28,
                             mass: 0.6
                         }}
-                        className="relative bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-1 shadow-2xl border-2 border-orange-500/50 w-full max-w-6xl my-8"
+                        className="relative bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-1 shadow-2xl border-2 border-orange-500/50 w-full max-w-6xl my-4 md:my-8 mx-2 md:mx-4"
                     >
                     {/* Close Button */}
                     <button
@@ -120,10 +120,10 @@ export function PlayerDetailModal({
                                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.2),transparent_60%)]" />
                             </div>
 
-                            <div className="relative z-10 flex items-start gap-6">
+                            <div className="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6">
                                 {/* Player Photo */}
                                 <div className="relative flex-shrink-0">
-                                    <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-gradient-to-br from-white to-gray-100">
+                                    <div className="w-24 h-24 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-gradient-to-br from-white to-gray-100">
                                         <img
                                             src={getPlayerPhotoUrl(player)}
                                             alt={player.web_name}
@@ -140,11 +140,11 @@ export function PlayerDetailModal({
                                     </div>
                                     {/* Team Badge */}
                                     {team && badgeUrls.length > 0 && (
-                                        <div className={`absolute -bottom-2 -right-2 w-16 h-16 ${colors.accent} rounded-full flex items-center justify-center shadow-xl border-4 border-white/70 overflow-hidden bg-white`}>
+                                        <div className={`absolute -bottom-1 -right-1 md:-bottom-2 md:-right-2 w-12 h-12 md:w-16 md:h-16 ${colors.accent} rounded-full flex items-center justify-center shadow-xl border-2 md:border-4 border-white/70 overflow-hidden bg-white`}>
                                             <img
                                                 src={badgeUrls[0]}
                                                 alt={team.short_name}
-                                                className="w-14 h-14 object-contain"
+                                                className="w-10 h-10 md:w-14 md:h-14 object-contain"
                                                 onError={(e) => {
                                                     const img = e.currentTarget;
                                                     if (badgeUrls[1] && img.src !== badgeUrls[1]) {
@@ -167,9 +167,9 @@ export function PlayerDetailModal({
                                     {/* Name Bar with Health Status */}
                                     <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 text-white px-4 py-3 rounded-lg mb-4 border-y-2 border-white/10 relative">
                                         <div className="flex items-start justify-between gap-4">
-                                            <div className="flex-1">
-                                                <h2 className="text-3xl font-black tracking-wide uppercase mb-1 drop-shadow-lg">{player.web_name}</h2>
-                                                <p className="text-lg text-gray-300 font-semibold">{team?.name || 'Unknown Team'}</p>
+                                            <div className="flex-1 text-center md:text-left">
+                                                <h2 className="text-xl md:text-3xl font-black tracking-wide uppercase mb-1 drop-shadow-lg">{player.web_name}</h2>
+                                                <p className="text-sm md:text-lg text-gray-300 font-semibold">{team?.name || 'Unknown Team'}</p>
                                             </div>
                                             {/* Health Status Box */}
                                             {(() => {
@@ -224,7 +224,7 @@ export function PlayerDetailModal({
                                                 }
                                                 
                                                 return (
-                                                    <div className={`${bgColor} ${borderColor} ${textColor} rounded-lg p-3 border-2 shadow-lg min-w-[140px] flex-shrink-0`}>
+                                                    <div className={`${bgColor} ${borderColor} ${textColor} rounded-lg p-2 md:p-3 border-2 shadow-lg w-full md:min-w-[140px] md:w-auto flex-shrink-0`}>
                                                         <div className="flex items-center justify-between mb-2">
                                                             <div className="flex items-center gap-2">
                                                                 <Heart className={`w-4 h-4 ${textColor === 'text-white' ? 'text-white' : 'text-gray-800'}`} />
@@ -257,18 +257,18 @@ export function PlayerDetailModal({
                                     </div>
 
                                     {/* Key Stats Grid */}
-                                    <div className="grid grid-cols-5 gap-2">
-                                        <div className="bg-gradient-to-br from-green-100 to-green-50 rounded-xl p-3 text-center border-2 border-green-500 shadow-sm">
-                                            <p className="text-[10px] text-gray-800 font-bold uppercase mb-1">Points</p>
-                                            <p className="text-xl font-black text-gray-900">{player.total_points}</p>
+                                    <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                                        <div className="bg-gradient-to-br from-green-100 to-green-50 rounded-xl p-2 md:p-3 text-center border-2 border-green-500 shadow-sm">
+                                            <p className="text-[9px] md:text-[10px] text-gray-800 font-bold uppercase mb-1">Points</p>
+                                            <p className="text-lg md:text-xl font-black text-gray-900">{player.total_points}</p>
                                         </div>
-                                        <div className="bg-gradient-to-br from-orange-100 to-orange-50 rounded-xl p-3 text-center border-2 border-orange-500 shadow-sm">
-                                            <p className="text-[10px] text-gray-800 font-bold uppercase mb-1">Price</p>
-                                            <p className="text-lg font-black text-gray-900">£{price.toFixed(1)}m</p>
+                                        <div className="bg-gradient-to-br from-orange-100 to-orange-50 rounded-xl p-2 md:p-3 text-center border-2 border-orange-500 shadow-sm">
+                                            <p className="text-[9px] md:text-[10px] text-gray-800 font-bold uppercase mb-1">Price</p>
+                                            <p className="text-base md:text-lg font-black text-gray-900">£{price.toFixed(1)}m</p>
                                         </div>
-                                        <div className="bg-gradient-to-br from-orange-100 to-orange-50 rounded-xl p-3 text-center border-2 border-orange-500 shadow-sm">
-                                            <p className="text-[10px] text-gray-800 font-bold uppercase mb-1">Form</p>
-                                            <p className="text-xl font-black text-orange-700">{form.toFixed(1)}</p>
+                                        <div className="bg-gradient-to-br from-orange-100 to-orange-50 rounded-xl p-2 md:p-3 text-center border-2 border-orange-500 shadow-sm">
+                                            <p className="text-[9px] md:text-[10px] text-gray-800 font-bold uppercase mb-1">Form</p>
+                                            <p className="text-lg md:text-xl font-black text-orange-700">{form.toFixed(1)}</p>
                                         </div>
                                         {(() => {
                                             // Calculate next game expected points
@@ -294,15 +294,15 @@ export function PlayerDetailModal({
                                             }
                                             
                                             return (
-                                                <div className="bg-gradient-to-br from-cyan-100 to-cyan-50 rounded-xl p-3 text-center border-2 border-cyan-500 shadow-sm">
-                                                    <p className="text-[10px] text-gray-800 font-bold uppercase mb-1">Next GW</p>
-                                                    <p className="text-xl font-black text-cyan-700">{nextGameExpected.toFixed(1)}</p>
+                                                <div className="bg-gradient-to-br from-cyan-100 to-cyan-50 rounded-xl p-2 md:p-3 text-center border-2 border-cyan-500 shadow-sm">
+                                                    <p className="text-[9px] md:text-[10px] text-gray-800 font-bold uppercase mb-1">Next GW</p>
+                                                    <p className="text-lg md:text-xl font-black text-cyan-700">{nextGameExpected.toFixed(1)}</p>
                                                 </div>
                                             );
                                         })()}
-                                        <div className="bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl p-3 text-center border-2 border-blue-500 shadow-sm">
-                                            <p className="text-[10px] text-gray-800 font-bold uppercase mb-1">Own</p>
-                                            <p className="text-lg font-black text-gray-900">{ownership.toFixed(1)}%</p>
+                                        <div className="bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl p-2 md:p-3 text-center border-2 border-blue-500 shadow-sm">
+                                            <p className="text-[9px] md:text-[10px] text-gray-800 font-bold uppercase mb-1">Own</p>
+                                            <p className="text-base md:text-lg font-black text-gray-900">{ownership.toFixed(1)}%</p>
                                         </div>
                                     </div>
                                 </div>
@@ -310,16 +310,16 @@ export function PlayerDetailModal({
                         </div>
 
                         {/* Content Grid */}
-                        <div className="p-6 grid lg:grid-cols-3 gap-6 bg-white">
+                        <div className="p-4 md:p-6 grid lg:grid-cols-3 gap-4 md:gap-6 bg-white">
                         {/* Left Column - Core Stats */}
-                        <div className="lg:col-span-2 space-y-6">
+                        <div className="lg:col-span-2 space-y-4 md:space-y-6">
                             {/* Primary Metrics */}
                             <div>
-                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-3 py-2 rounded-lg border border-gray-300">
-                                    <Activity className="w-5 h-5 text-orange-600" />
+                                <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-gray-300">
+                                    <Activity className="w-4 h-4 md:w-5 md:h-5 text-orange-600" />
                                     Primary Metrics
                                 </h3>
-                                <div className="grid grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
                                     <MetricCard label="Form" value={form.toFixed(1)} color="primary" />
                                     <MetricCard label="Points" value={player.total_points} color="green" />
                                     <MetricCard label="Price" value={`£${price.toFixed(1)}m`} color="orange" />
@@ -333,11 +333,11 @@ export function PlayerDetailModal({
 
                             {/* Performance Stats */}
                             <div>
-                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-3 py-2 rounded-lg border border-gray-300">
-                                    <Target className="w-5 h-5 text-green-600" />
+                                <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-gray-300">
+                                    <Target className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
                                     Performance Stats
                                 </h3>
-                                <div className="grid grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
                                     <MetricCard label="Goals" value={player.goals_scored || 0} color="green" icon={Target} />
                                     <MetricCard label="Assists" value={player.assists || 0} color="blue" />
                                     <MetricCard label="Clean Sheets" value={player.clean_sheets || 0} color="cyan" icon={Shield} />
@@ -353,11 +353,11 @@ export function PlayerDetailModal({
 
                             {/* ICT Index Breakdown */}
                             <div>
-                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-3 py-2 rounded-lg border border-gray-300">
-                                    <Award className="w-5 h-5 text-orange-600" />
+                                <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-gray-300">
+                                    <Award className="w-4 h-4 md:w-5 md:h-5 text-orange-600" />
                                     ICT Index Breakdown
                                 </h3>
-                                <div className="grid grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
                                     <MetricCard label="ICT Index" value={parseFloat(player.ict_index || 0).toFixed(1)} color="orange" />
                                     <MetricCard label="Influence" value={parseFloat(player.influence || 0).toFixed(1)} color="orange-dark" />
                                     <MetricCard label="Creativity" value={parseFloat(player.creativity || 0).toFixed(1)} color="cyan" />
@@ -371,11 +371,11 @@ export function PlayerDetailModal({
 
                             {/* Expected Stats (xG, xA) */}
                             <div>
-                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-3 py-2 rounded-lg border border-gray-300">
-                                    <TrendingUp className="w-5 h-5 text-cyan-600" />
+                                <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-gray-300">
+                                    <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-cyan-600" />
                                     Expected Stats
                                 </h3>
-                                <div className="grid grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
                                     <MetricCard label="xG (Expected Goals)" value={parseFloat(player.expected_goals || 0).toFixed(2)} color="green" />
                                     <MetricCard label="xA (Expected Assists)" value={parseFloat(player.expected_assists || 0).toFixed(2)} color="blue" />
                                     <MetricCard label="xGI (xG + xA)" value={parseFloat(player.expected_goal_involvements || 0).toFixed(2)} color="cyan" />
@@ -385,11 +385,11 @@ export function PlayerDetailModal({
 
                             {/* Price & Transfers */}
                             <div>
-                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-3 py-2 rounded-lg border border-gray-300">
-                                    <Users className="w-5 h-5 text-blue-600" />
+                                <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-gray-300">
+                                    <Users className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
                                     Price & Transfers
                                 </h3>
-                                <div className="grid grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
                                     <MetricCard label="Price Change" value={`${priceChange >= 0 ? '+' : ''}£${priceChange.toFixed(1)}m`} color={priceChange >= 0 ? 'green' : 'red'} icon={priceChange >= 0 ? TrendingUp : TrendingDown} />
                                     <MetricCard label="Transfers In" value={(player.transfers_in || 0).toLocaleString()} color="green" />
                                     <MetricCard label="Transfers Out" value={(player.transfers_out || 0).toLocaleString()} color="red" />
@@ -406,12 +406,12 @@ export function PlayerDetailModal({
                         </div>
 
                         {/* Right Column - Fixtures & Analytics */}
-                        <div className="space-y-6">
+                        <div className="space-y-4 md:space-y-6">
                             {/* Fixtures */}
                             <div>
-                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-3 py-2 rounded-lg border border-gray-300">
-                                    <Clock className="w-5 h-5 text-orange-600" />
-                                    Next 10 Fixtures & Expected Points
+                                <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-gray-300">
+                                    <Clock className="w-4 h-4 md:w-5 md:h-5 text-orange-600" />
+                                    <span className="text-xs md:text-base">Next 10 Fixtures</span>
                                 </h3>
                                 <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 shadow-sm">
                                     <FixtureDetailView
@@ -703,10 +703,10 @@ function MetricCard({ label, value, color, icon: Icon, small = false }: any) {
     };
 
     return (
-        <div className={`text-center p-3 rounded-xl ${colorClasses[color as string] || colorClasses.primary}`}>
-            {Icon && <Icon className="w-4 h-4 mx-auto mb-1 text-gray-700" />}
-            <p className={`${small ? 'text-[9px]' : 'text-[10px]'} text-gray-800 font-bold uppercase mb-1`}>{label}</p>
-            <p className={`font-black text-gray-900 ${small ? 'text-xs' : 'text-sm'}`}>{value}</p>
+        <div className={`text-center p-2 md:p-3 rounded-xl ${colorClasses[color as string] || colorClasses.primary}`}>
+            {Icon && <Icon className="w-3 h-3 md:w-4 md:h-4 mx-auto mb-0.5 md:mb-1 text-gray-700" />}
+            <p className={`${small ? 'text-[8px] md:text-[9px]' : 'text-[9px] md:text-[10px]'} text-gray-800 font-bold uppercase mb-0.5 md:mb-1`}>{label}</p>
+            <p className={`font-black text-gray-900 ${small ? 'text-[10px] md:text-xs' : 'text-xs md:text-sm'}`}>{value}</p>
         </div>
     );
 }

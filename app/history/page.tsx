@@ -1,19 +1,36 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Trophy, X, ChevronLeft, ChevronRight, Users, Target, Shield, Zap, Award, Activity, Star } from "lucide-react";
+import { TrendingUp, TrendingDown, Trophy, X, ChevronLeft, ChevronRight, Users, Target, Shield, Zap, Award, Activity, Star, Sparkles, Layers, RotateCcw } from "lucide-react";
 import { useFPLData, useEventPicks } from "@/lib/hooks/use-fpl-data";
-import { BottomNav } from "@/components/bottom-nav";
 import { InsightsPitchView } from "@/components/insights/insights-pitch-view";
 import { PlayerDetailModal } from "@/components/insights/player-detail-modal";
 import { getPlayerPhotoUrls, getTeamBadgeUrl, getPlayerInitials } from '@/lib/player-photo-utils';
 
 
+// Retry helper with exponential backoff
+async function fetchWithRetry(url: string, options: RequestInit = {}, maxRetries = 3): Promise<Response> {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const res = await fetch(url, options);
+            if (res.ok || i === maxRetries - 1) {
+                return res;
+            }
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+        } catch (error) {
+            if (i === maxRetries - 1) throw error;
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+        }
+    }
+    throw new Error('Max retries exceeded');
+}
+
 export default function HistoryPage() {
+    const router = useRouter();
     const [sessionData, setSessionData] = useState<{ entryId: number } | null>(null);
     const [selectedGW, setSelectedGW] = useState<number | null>(null);
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
@@ -22,13 +39,46 @@ export default function HistoryPage() {
     const [myPlayers, setMyPlayers] = useState<Set<number>>(new Set());
     const [allPicksLoaded, setAllPicksLoaded] = useState(false);
     const [playerStats, setPlayerStats] = useState<Map<number, { points: number, goals: number, assists: number, cleanSheets: number, appearances: number }>>(new Map());
+    const [sessionError, setSessionError] = useState<string | null>(null);
+    const [chipUsage, setChipUsage] = useState<Map<number, string>>(new Map()); // Map of gameweek -> chip name
+    const [gameweekPicks, setGameweekPicks] = useState<Map<number, any>>(new Map()); // Map of gameweek -> picks data
+    const [adjustedPoints, setAdjustedPoints] = useState<Record<number, number>>({}); // Object: gameweek -> adjusted points (using object for React reactivity)
+    const [pointsCalculated, setPointsCalculated] = useState(false); // Flag to track if calculations are complete
 
     useEffect(() => {
-        fetch('/api/session/create')
-            .then(res => res.ok ? res.json() : Promise.reject())
-            .then(data => setSessionData(data))
-            .catch(() => redirect('/login'));
-    }, []);
+        let mounted = true;
+
+        const loadSession = async () => {
+            try {
+                const res = await fetchWithRetry('/api/session/create');
+                if (!res.ok) {
+                    if (res.status === 404) {
+                        router.push('/login');
+                        return;
+                    }
+                    throw new Error(`Session error: ${res.status}`);
+                }
+                const data = await res.json();
+                if (mounted) {
+                    setSessionData(data);
+                }
+            } catch (err) {
+                console.error('[HistoryPage] Error loading session:', err);
+                if (mounted) {
+                    setSessionError(err instanceof Error ? err.message : 'Failed to load session');
+                    if (err instanceof Error && err.message.includes('Session')) {
+                        setTimeout(() => router.push('/login'), 2000);
+                    }
+                }
+            }
+        };
+
+        loadSession();
+
+        return () => {
+            mounted = false;
+        };
+    }, [router]);
 
     const { bootstrap, history, fixtures, isLoading } = useFPLData(sessionData?.entryId);
     const { data: picksData } = useEventPicks(sessionData?.entryId, selectedGW || undefined);
@@ -40,6 +90,27 @@ export default function HistoryPage() {
             setSelectedGW(lastGW?.event);
         }
     }, [history, selectedGW]);
+
+    // Show error state if session failed
+    if (sessionError) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="text-center space-y-4 p-4">
+                    <p className="text-lg text-destructive font-semibold">Error loading session</p>
+                    <p className="text-sm text-muted-foreground">{sessionError}</p>
+                    <button
+                        onClick={() => {
+                            setSessionError(null);
+                            router.refresh();
+                        }}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     // Fetch player histories for all players in the selected gameweek
     useEffect(() => {
@@ -102,6 +173,9 @@ export default function HistoryPage() {
 
             const allPlayerIds = new Set<number>();
             const playerGWMap = new Map<number, Set<number>>(); // Map player ID to set of gameweeks they were in team
+            const chipMap = new Map<number, string>(); // Map gameweek -> chip name
+            const picksMap = new Map<number, any>(); // Map gameweek -> picks data
+            const adjustedPointsObj: Record<number, number> = {}; // Object: gameweek -> adjusted points (for React reactivity)
             
             // First pass: Fetch picks for all gameweeks to identify "my players" and when they were in team
             const fetchPromises = history.current.map(async (gw: any) => {
@@ -118,6 +192,96 @@ export default function HistoryPage() {
                             }
                             playerGWMap.get(pick.element)!.add(gw.event);
                         });
+                        
+                        // Store picks data for this gameweek
+                        picksMap.set(gw.event, data);
+                    }
+                    
+                    // CRITICAL: The FPL API's history.current[].points does NOT include captain multipliers
+                    // We MUST calculate the total ourselves from player histories with correct multipliers
+                    const normalizedChip = data.active_chip ? String(data.active_chip).toLowerCase().trim() : '';
+                    const isTripleCaptain = normalizedChip.includes('triple') || normalizedChip === '3xc' || normalizedChip === 'tc';
+                    const isBenchBoost = normalizedChip.includes('bench') || normalizedChip === 'bboost' || normalizedChip === 'bb';
+                    const captainPick = data.picks?.find((p: any) => p.is_captain);
+                    
+                    // Calculate total from all players with proper multipliers
+                    if (data.picks && Array.isArray(data.picks) && data.picks.length > 0) {
+                        try {
+                            // Fetch all player histories for this gameweek in parallel
+                            const playerCalculations = await Promise.all(
+                                data.picks.map(async (pick: any) => {
+                                    try {
+                                        const historyRes = await fetch(`/api/fpl/element-summary/${pick.element}/`);
+                                        if (!historyRes.ok) {
+                                            console.warn(`[HistoryPage] GW ${gw.event}: Failed to fetch player ${pick.element} history (${historyRes.status})`);
+                                            return null;
+                                        }
+                                        const historyData = await historyRes.json();
+                                        const gwEntry = historyData.history?.find((h: any) => {
+                                            const event = h.event || h.round;
+                                            return event === gw.event;
+                                        });
+                                        
+                                        if (!gwEntry) {
+                                            console.warn(`[HistoryPage] GW ${gw.event}: No history entry for player ${pick.element} in GW ${gw.event}`);
+                                            return null;
+                                        }
+                                        
+                                        const basePoints = gwEntry.total_points || gwEntry.points || 0;
+                                        const isStarting = pick.position <= 11;
+                                        
+                                        // Determine multiplier: Captain gets 2x (normal) or 3x (TC)
+                                        let multiplier = 1;
+                                        if (pick.is_captain) {
+                                            multiplier = isTripleCaptain ? 3 : 2;
+                                        }
+                                        
+                                        return {
+                                            element: pick.element,
+                                            basePoints,
+                                            multiplier,
+                                            isStarting,
+                                            isCaptain: pick.is_captain,
+                                            calculatedPoints: basePoints * multiplier
+                                        };
+                                    } catch (err) {
+                                        console.error(`[HistoryPage] GW ${gw.event}: Error fetching player ${pick.element} history:`, err);
+                                        return null;
+                                    }
+                                })
+                            );
+                            
+                            const validCalculations = playerCalculations.filter((p): p is NonNullable<typeof p> => p !== null);
+                            
+                            if (validCalculations.length === 0) {
+                                console.error(`[HistoryPage] GW ${gw.event}: No valid player calculations, using API fallback`);
+                                // Fallback to entry_history if available, otherwise use history.current
+                                if (data.entry_history?.points !== undefined && data.entry_history.points !== null) {
+                                    adjustedPointsObj[gw.event] = Number(data.entry_history.points);
+                                }
+                            } else {
+                                // Sum points for starting XI only (unless Bench Boost)
+                                const playersToInclude = isBenchBoost 
+                                    ? validCalculations // Include bench if BB
+                                    : validCalculations.filter(p => p.isStarting); // Only starting XI
+                                
+                                const calculatedTotal = playersToInclude.reduce((sum, p) => sum + p.calculatedPoints, 0);
+                                
+                                // Always use calculated total (it's correct)
+                                adjustedPointsObj[gw.event] = calculatedTotal;
+                            }
+                        } catch (calcErr) {
+                            console.error(`[HistoryPage] GW ${gw.event}: Error calculating points:`, calcErr);
+                            // Fallback to entry_history if available
+                            if (data.entry_history?.points !== undefined && data.entry_history.points !== null) {
+                                adjustedPointsObj[gw.event] = Number(data.entry_history.points);
+                            }
+                        }
+                    }
+                    
+                    // Store chip usage if active_chip exists
+                    if (data.active_chip && data.active_chip !== null) {
+                        chipMap.set(gw.event, data.active_chip);
                     }
                 } catch (error) {
                     console.error(`[HistoryPage] Error fetching picks for GW ${gw.event}:`, error);
@@ -126,6 +290,12 @@ export default function HistoryPage() {
 
             await Promise.all(fetchPromises);
             setMyPlayers(allPlayerIds);
+            setChipUsage(chipMap);
+            setGameweekPicks(picksMap);
+            
+            // Set adjusted points as a new object to trigger React re-render
+            setAdjustedPoints({ ...adjustedPointsObj });
+            setPointsCalculated(true);
             
             // Now fetch player histories for all "my players" and calculate stats
             const statsMap = new Map<number, { points: number, goals: number, assists: number, cleanSheets: number, appearances: number }>();
@@ -245,6 +415,144 @@ export default function HistoryPage() {
         return null;
     };
 
+    // Function to get historical gameweek stats for a player
+    const getHistoricalGWStats = (playerId: number) => {
+        if (!selectedGW) return null;
+        
+        const history = playerHistories.get(playerId);
+        if (!history || !Array.isArray(history)) return null;
+
+        // Find the gameweek entry in the player's history
+        const gwEntry = history.find((h: any) => {
+            const event = h.event || h.round;
+            return event === selectedGW;
+        });
+
+        if (!gwEntry) return null;
+
+        return {
+            goals: gwEntry.goals_scored || 0,
+            assists: gwEntry.assists || 0,
+            cleanSheets: gwEntry.clean_sheets || 0,
+            bonus: gwEntry.bonus || 0,
+            minutes: gwEntry.minutes || 0,
+            yellowCards: gwEntry.yellow_cards || 0,
+            redCards: gwEntry.red_cards || 0,
+            saves: gwEntry.saves || 0,
+            goalsConceded: gwEntry.goals_conceded || 0,
+            penaltiesMissed: gwEntry.penalties_missed || 0,
+            penaltiesSaved: gwEntry.penalties_saved || 0,
+        };
+    };
+
+    // Get chip icon and label
+    const getChipInfo = (chipName: string | null | undefined) => {
+        if (!chipName) return null;
+        
+        // Normalize chip name to handle different API formats
+        const normalizedChipName = chipName.toLowerCase().trim();
+        
+        const chipMap: Record<string, { icon: any, label: string, fullName: string, textColor: string, borderColor: string, ringColor: string, bgColor: string, badgeBgColor: string }> = {
+            'wildcard': { 
+                icon: Sparkles, 
+                label: 'WC', 
+                fullName: 'Wildcard',
+                textColor: 'text-purple-400', 
+                borderColor: 'border-purple-400', 
+                ringColor: 'ring-purple-400/50',
+                bgColor: 'bg-purple-500/10',
+                badgeBgColor: 'bg-purple-500/20'
+            },
+            'triple_captain': { 
+                icon: Zap, 
+                label: 'TC', 
+                fullName: 'Triple Captain',
+                textColor: 'text-yellow-400', 
+                borderColor: 'border-yellow-400', 
+                ringColor: 'ring-yellow-400/50',
+                bgColor: 'bg-yellow-500/10',
+                badgeBgColor: 'bg-yellow-500/20'
+            },
+            '3xc': {  // Alternative format (3x Captain)
+                icon: Zap, 
+                label: 'TC', 
+                fullName: 'Triple Captain',
+                textColor: 'text-yellow-400', 
+                borderColor: 'border-yellow-400', 
+                ringColor: 'ring-yellow-400/50',
+                bgColor: 'bg-yellow-500/10',
+                badgeBgColor: 'bg-yellow-500/20'
+            },
+            'triplecaptain': {  // Alternative format (no underscore)
+                icon: Zap, 
+                label: 'TC', 
+                fullName: 'Triple Captain',
+                textColor: 'text-yellow-400', 
+                borderColor: 'border-yellow-400', 
+                ringColor: 'ring-yellow-400/50',
+                bgColor: 'bg-yellow-500/10',
+                badgeBgColor: 'bg-yellow-500/20'
+            },
+            'tc': {  // Alternative format (abbreviation)
+                icon: Zap, 
+                label: 'TC', 
+                fullName: 'Triple Captain',
+                textColor: 'text-yellow-400', 
+                borderColor: 'border-yellow-400', 
+                ringColor: 'ring-yellow-400/50',
+                bgColor: 'bg-yellow-500/10',
+                badgeBgColor: 'bg-yellow-500/20'
+            },
+            'bench_boost': { 
+                icon: Layers, 
+                label: 'BB', 
+                fullName: 'Bench Boost',
+                textColor: 'text-blue-400', 
+                borderColor: 'border-blue-400', 
+                ringColor: 'ring-blue-400/50',
+                bgColor: 'bg-blue-500/10',
+                badgeBgColor: 'bg-blue-500/20'
+            },
+            'bboost': {  // Alternative format
+                icon: Layers, 
+                label: 'BB', 
+                fullName: 'Bench Boost',
+                textColor: 'text-blue-400', 
+                borderColor: 'border-blue-400', 
+                ringColor: 'ring-blue-400/50',
+                bgColor: 'bg-blue-500/10',
+                badgeBgColor: 'bg-blue-500/20'
+            },
+            'free_hit': { 
+                icon: RotateCcw, 
+                label: 'FH', 
+                fullName: 'Free Hit',
+                textColor: 'text-green-400', 
+                borderColor: 'border-green-400', 
+                ringColor: 'ring-green-400/50',
+                bgColor: 'bg-green-500/10',
+                badgeBgColor: 'bg-green-500/20'
+            },
+            'freehit': {  // Alternative format
+                icon: RotateCcw, 
+                label: 'FH', 
+                fullName: 'Free Hit',
+                textColor: 'text-green-400', 
+                borderColor: 'border-green-400', 
+                ringColor: 'ring-green-400/50',
+                bgColor: 'bg-green-500/10',
+                badgeBgColor: 'bg-green-500/20'
+            },
+        };
+        
+        const chipInfo = chipMap[normalizedChipName];
+        if (!chipInfo) {
+            console.warn(`[HistoryPage] Unknown chip name: "${chipName}" (normalized: "${normalizedChipName}")`);
+        }
+        
+        return chipInfo || null;
+    };
+
     // Get top 3 players by selected category
     const getTopPlayers = () => {
         if (!elements || !myPlayers || myPlayers.size === 0) return [];
@@ -329,17 +637,17 @@ export default function HistoryPage() {
 
     return (
         <>
-            <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 pb-24">
-                <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+            <div className="min-h-screen bg-background pb-24 pt-16">
+                <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-5 md:space-y-6">
                     {/* Hero Section - Match Dashboard Style */}
-                    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-secondary/30 via-primary/20 to-background border border-primary/30 p-8">
+                    <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card border border-border p-4 md:p-8">
                         <div className="relative z-10">
                             <div className="flex items-center gap-3">
                                 <div className="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
                                     <Trophy className="w-6 h-6 text-primary" />
                                 </div>
                                 <div>
-                                    <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                                    <h1 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-foreground">
                                         Season History
                                     </h1>
                                     <p className="text-muted-foreground">Click any gameweek to view details</p>
@@ -436,7 +744,7 @@ export default function HistoryPage() {
                                                     {/* Player Info */}
                                                     <div className="flex-1 min-w-0">
                                                         <h4 className="font-bold text-lg truncate">{player.web_name}</h4>
-                                                        <p className="text-sm text-muted-foreground truncate">{team?.short_name} • {['', 'GKP', 'DEF', 'MID', 'FWD'][player.element_type]}</p>
+                                                        <p className="text-sm text-muted-foreground truncate">{team?.short_name} · {['', 'GKP', 'DEF', 'MID', 'FWD'][player.element_type]}</p>
                                                         
                                                         {/* Category Value */}
                                                         <div className="flex items-center gap-2 mt-2">
@@ -481,6 +789,14 @@ export default function HistoryPage() {
                                     const isSelected = gw.event === selectedGW;
                                     const prevGW = history.current.find((g: any) => g.event === gw.event - 1);
                                     const rankChange = prevGW ? prevGW.overall_rank - gw.overall_rank : 0;
+                                    const chipUsed = chipUsage.get(gw.event);
+                                    const chipInfo = getChipInfo(chipUsed);
+                                    const ChipIcon = chipInfo?.icon;
+                                    
+                                    // Debug: Log if chip is expected but not found
+                                    if (chipUsed && !chipInfo) {
+                                        console.warn(`[HistoryPage] GW ${gw.event}: Chip "${chipUsed}" not recognized`);
+                                    }
 
                                     return (
                                         <button
@@ -488,14 +804,39 @@ export default function HistoryPage() {
                                             onClick={() => setSelectedGW(gw.event)}
                                             className={`group relative p-4 rounded-xl border-2 transition-all duration-300 ${isSelected
                                                 ? 'border-primary bg-gradient-to-br from-primary/20 to-orange-500/20 scale-105 shadow-lg shadow-primary/20'
-                                                : 'border-border bg-card hover:border-primary/50 hover:scale-105 hover:shadow-md'
+                                                : chipUsed && chipInfo
+                                                    ? `${chipInfo.borderColor} ${chipInfo.bgColor} hover:scale-105 hover:shadow-md ring-2 ring-offset-2 ring-offset-background ${chipInfo.ringColor}`
+                                                    : 'border-border bg-card hover:border-primary/50 hover:scale-105 hover:shadow-md'
                                                 }`}
                                         >
                                             <div className={`absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity ${isSelected ? 'opacity-100' : ''}`} />
 
+                                            {/* Chip Badge - Top Right (Cleaner, like before) */}
+                                            {chipInfo && ChipIcon && (
+                                                <div className={`absolute -top-2 -right-2 w-7 h-7 rounded-full bg-background border-2 ${chipInfo.borderColor} flex items-center justify-center shadow-lg z-10`}
+                                                     title={chipInfo.fullName}>
+                                                    <ChipIcon className={`w-4 h-4 ${chipInfo.textColor}`} strokeWidth={2.5} />
+                                                </div>
+                                            )}
+
                                             <div className="relative">
-                                                <p className="text-xs text-muted-foreground mb-1 font-semibold">GW {gw.event}</p>
-                                                <p className="text-2xl font-black mb-2">{gw.points}</p>
+                                                <div className="flex items-center justify-center gap-1 mb-1">
+                                                    <p className="text-xs text-muted-foreground font-semibold">GW {gw.event}</p>
+                                                    {chipInfo && (
+                                                        <span className={`text-[10px] font-bold ${chipInfo.textColor}`}>{chipInfo.label}</span>
+                                                    )}
+                                                </div>
+                                                
+                                                <p className="text-2xl font-black mb-2">
+                                                    {(() => {
+                                                        const adjValue = adjustedPoints[gw.event];
+                                                        const hasAdj = adjValue !== undefined;
+                                                        const displayValue = hasAdj ? adjValue : gw.points;
+                                                        
+                                                        
+                                                        return displayValue;
+                                                    })()}
+                                                </p>
                                                 <div className="flex items-center justify-center gap-1 text-xs">
                                                     {rankChange > 0 ? (
                                                         <TrendingUp className="w-3 h-3 text-green-500" />
@@ -560,7 +901,16 @@ export default function HistoryPage() {
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <div className="p-4 rounded-xl bg-gradient-to-br from-primary/20 to-orange-500/20 border border-primary/30">
                                             <p className="text-xs text-muted-foreground mb-1">Points</p>
-                                            <p className="text-3xl font-black">{selectedGWData.points}</p>
+                                            <p className="text-3xl font-black">
+                                                {(() => {
+                                                    const adjValue = adjustedPoints[selectedGW];
+                                                    const hasAdj = adjValue !== undefined;
+                                                    const displayValue = hasAdj ? adjValue : selectedGWData.points;
+                                                    
+                                                    
+                                                    return displayValue;
+                                                })()}
+                                            </p>
                                         </div>
                                         <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-700/20 border border-blue-500/30">
                                             <p className="text-xs text-muted-foreground mb-1">Overall Rank</p>
@@ -617,6 +967,7 @@ export default function HistoryPage() {
                                                     isHistoryView={true}
                                                     getHistoricalExpectedPoints={getHistoricalExpectedPoints}
                                                     getHistoricalActualPoints={getHistoricalActualPoints}
+                                                    getHistoricalGWStats={getHistoricalGWStats}
                                                 />
                                             </div>
 
@@ -707,6 +1058,7 @@ export default function HistoryPage() {
                                                                     isHistoryView={true}
                                                                     getHistoricalExpectedPoints={getHistoricalExpectedPoints}
                                                                     getHistoricalActualPoints={getHistoricalActualPoints}
+                                                                    getHistoricalGWStats={getHistoricalGWStats}
                                                                 />
                                                             </div>
                                                         </div>
@@ -754,7 +1106,6 @@ export default function HistoryPage() {
                 />
             )}
             
-            <BottomNav />
         </>
     );
 }

@@ -19,11 +19,17 @@ export function getNextFixtures(
     currentEvent: number,
     count: number = 5
 ): any[] {
+    // Normalize currentEvent to a number
+    const currentEventNum = typeof currentEvent === 'number' ? currentEvent : (currentEvent?.id || 1);
+    
     return fixtures
         .filter((f: any) => {
             const isTeamInFixture = f.team_h === teamId || f.team_a === teamId;
-            const isFuture = f.event >= currentEvent;
-            return isTeamInFixture && isFuture && f.event !== null;
+            // Show fixtures from NEXT gameweek onwards (not current)
+            const isFuture = f.event > currentEventNum;
+            // Exclude finished fixtures
+            const isNotFinished = !f.finished;
+            return isTeamInFixture && isFuture && isNotFinished && f.event !== null;
         })
         .sort((a: any, b: any) => a.event - b.event)
         .slice(0, count);
@@ -53,12 +59,23 @@ export function getAverageFDR(
 
 /**
  * Get FDR color class based on difficulty
+ * 5-step gradient: Green (1) -> Lime (2) -> Yellow (3) -> Orange (4) -> Red (5)
  */
 export function getFDRColorClass(difficulty: number): string {
-    if (difficulty <= 2) return 'text-green-600';
-    if (difficulty === 3) return 'text-yellow-600';
-    if (difficulty === 4) return 'text-orange-600';
-    return 'text-red-600';
+    switch (difficulty) {
+        case 1:
+            return 'text-green-600'; // Very Easy - Green
+        case 2:
+            return 'text-lime-600'; // Easy - Lime
+        case 3:
+            return 'text-yellow-600'; // Moderate - Yellow
+        case 4:
+            return 'text-orange-600'; // Difficult - Orange
+        case 5:
+            return 'text-red-600'; // Very Difficult - Red
+        default:
+            return 'text-gray-600';
+    }
 }
 
 /**

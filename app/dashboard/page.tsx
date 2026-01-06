@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Trophy, Star, ArrowUp, ArrowDown, Calendar } from "lucide-react";
 import { useFPLData } from "@/lib/hooks/use-fpl-data";
-import { BottomNav } from "@/components/bottom-nav";
 import { FPLNewsFeed } from "@/components/dashboard/fpl-news-feed";
 import { Line } from 'react-chartjs-2';
 import {
@@ -24,15 +23,54 @@ import {
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 export default function Dashboard() {
+    const router = useRouter();
     const [sessionData, setSessionData] = useState<{ entryId: number; teamName: string; playerName: string } | null>(null);
     const [currentEventId, setCurrentEventId] = useState<number>();
 
     useEffect(() => {
-        fetch('/api/session/create')
-            .then(res => res.ok ? res.json() : Promise.reject())
-            .then(data => setSessionData(data))
-            .catch(() => redirect('/login'));
-    }, []);
+        let mounted = true;
+
+        const loadSession = async () => {
+            try {
+                // Retry logic with exponential backoff
+                let res: Response | null = null;
+                for (let i = 0; i < 3; i++) {
+                    try {
+                        res = await fetch('/api/session/create');
+                        if (res.ok || i === 2) break;
+                        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                    } catch (error) {
+                        if (i === 2) throw error;
+                        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                    }
+                }
+
+                if (!res || !res.ok) {
+                    if (res?.status === 404) {
+                        router.push('/login');
+                        return;
+                    }
+                    throw new Error(`Session error: ${res?.status || 'Unknown'}`);
+                }
+
+                const data = await res.json();
+                if (mounted) {
+                    setSessionData(data);
+                }
+            } catch (err) {
+                console.error('[Dashboard] Error loading session:', err);
+                if (mounted && err instanceof Error && err.message.includes('Session')) {
+                    setTimeout(() => router.push('/login'), 2000);
+                }
+            }
+        };
+
+        loadSession();
+
+        return () => {
+            mounted = false;
+        };
+    }, [router]);
 
     const { bootstrap, entry, history, picks, isLoading } = useFPLData(
         sessionData?.entryId,
@@ -112,27 +150,27 @@ export default function Dashboard() {
 
     return (
         <>
-            <div className="min-h-screen bg-background pb-24">
-                <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+            <div className="min-h-screen bg-background pb-24 pt-16">
+                <div className="max-w-7xl mx-auto p-3 md:p-4 lg:p-6 space-y-4 md:space-y-6">
                     {/* Hero Section */}
-                    <div className="relative overflow-hidden rounded-3xl bg-card border border-border p-8 md:p-12">
+                    <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card border border-border p-4 md:p-8 lg:p-12">
                         <div className="relative z-10">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
-                                    <Trophy className="w-6 h-6 text-primary" />
+                            <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
+                                    <Trophy className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                 </div>
                                 <div>
-                                    <h1 className="text-3xl md:text-4xl font-bold text-foreground">
+                                    <h1 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-foreground">
                                         {sessionData.teamName}
                                     </h1>
-                                    <p className="text-muted-foreground">{sessionData.playerName}</p>
+                                    <p className="text-xs md:text-sm text-muted-foreground">{sessionData.playerName}</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-                                <div className="bg-background rounded-2xl p-4 border border-border">
-                                    <p className="text-sm text-muted-foreground mb-1">Total Points</p>
-                                    <p className="text-3xl font-bold">{totalPoints.toLocaleString()}</p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mt-4 md:mt-8">
+                                <div className="bg-background rounded-xl md:rounded-2xl p-3 md:p-4 border border-border">
+                                    <p className="text-xs md:text-sm text-muted-foreground mb-1">Total Points</p>
+                                    <p className="text-2xl md:text-3xl font-bold">{totalPoints.toLocaleString()}</p>
                                 </div>
                                 <div className="bg-card/80 backdrop-blur rounded-2xl p-4 border-2 border-primary/20">
                                     <p className="text-sm text-muted-foreground mb-1">Overall Rank</p>
@@ -161,13 +199,13 @@ export default function Dashboard() {
                     {/* Current Gameweek */}
                     {currentEvent && (
                         <Card className="border-border bg-card">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <Calendar className="w-5 h-5 text-primary" />
+                            <CardContent className="p-4 md:p-6">
+                                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2 md:gap-3">
+                                        <Calendar className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                                         <div>
-                                            <p className="font-medium text-lg">Gameweek {currentEvent.id}</p>
-                                            <p className="text-sm text-muted-foreground">{currentEvent.name}</p>
+                                            <p className="font-medium text-base md:text-lg">Gameweek {currentEvent.id}</p>
+                                            <p className="text-xs md:text-sm text-muted-foreground">{currentEvent.name}</p>
                                         </div>
                                     </div>
                                     <Badge
@@ -187,17 +225,17 @@ export default function Dashboard() {
                         </Card>
                     )}
 
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid md:grid-cols-2 gap-4 md:gap-6">
                         {/* Points Progression */}
                         <Card className="border-border">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <TrendingUp className="w-5 h-5 text-primary" />
+                            <CardHeader className="p-4 md:p-6 pb-3 md:pb-4">
+                                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                                    <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                                     Points Progression
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <div className="h-64">
+                            <CardContent className="p-4 md:p-6 pt-0">
+                                <div className="h-48 md:h-64">
                                     <Line data={chartData} options={chartOptions} />
                                 </div>
                             </CardContent>
@@ -205,36 +243,36 @@ export default function Dashboard() {
 
                         {/* Top Performers */}
                         <Card className="border-border">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Star className="w-5 h-5 text-primary" />
+                            <CardHeader className="p-4 md:p-6 pb-3 md:pb-4">
+                                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                                    <Star className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                                     Season Highlights
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border">
-                                    <span className="text-sm text-muted-foreground flex items-center gap-2">
+                            <CardContent className="space-y-2 md:space-y-4 p-4 md:p-6 pt-0">
+                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
+                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
                                         🏆 Best Gameweek
                                     </span>
-                                    <span className="font-bold text-primary">{Math.max(...history.current.map((gw: any) => gw.points))} pts</span>
+                                    <span className="font-bold text-sm md:text-base text-primary">{Math.max(...history.current.map((gw: any) => gw.points))} pts</span>
                                 </div>
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border">
-                                    <span className="text-sm text-muted-foreground flex items-center gap-2">
+                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
+                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
                                         📈 Highest Rank
                                     </span>
-                                    <span className="font-bold text-primary">{Math.min(...history.current.map((gw: any) => gw.overall_rank)).toLocaleString()}</span>
+                                    <span className="font-bold text-sm md:text-base text-primary">{Math.min(...history.current.map((gw: any) => gw.overall_rank)).toLocaleString()}</span>
                                 </div>
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border">
-                                    <span className="text-sm text-muted-foreground flex items-center gap-2">
+                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
+                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
                                         💺 Points on Bench
                                     </span>
-                                    <span className="font-bold">{lastGW?.points_on_bench || 0} pts</span>
+                                    <span className="font-bold text-sm md:text-base">{lastGW?.points_on_bench || 0} pts</span>
                                 </div>
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border">
-                                    <span className="text-sm text-muted-foreground flex items-center gap-2">
+                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
+                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
                                         🔄 Total Transfers
                                     </span>
-                                    <span className="font-bold">{history.current.reduce((sum: number, gw: any) => sum + (gw.event_transfers || 0), 0)}</span>
+                                    <span className="font-bold text-sm md:text-base">{history.current.reduce((sum: number, gw: any) => sum + (gw.event_transfers || 0), 0)}</span>
                                 </div>
                             </CardContent>
                         </Card>
@@ -244,7 +282,6 @@ export default function Dashboard() {
                     <FPLNewsFeed />
                 </div>
             </div>
-            <BottomNav />
         </>
     );
 }

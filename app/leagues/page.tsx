@@ -1,87 +1,242 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Users, TrendingUp, TrendingDown, Medal, Crown, Award, Globe, Flag } from "lucide-react";
-import { BottomNav } from "@/components/bottom-nav";
+
+// Retry helper with exponential backoff
+async function fetchWithRetry(url: string, options: RequestInit = {}, maxRetries = 3): Promise<Response> {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const res = await fetch(url, options);
+            if (res.ok || i === maxRetries - 1) {
+                return res;
+            }
+            // Wait before retrying (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+        } catch (error) {
+            if (i === maxRetries - 1) throw error;
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+        }
+    }
+    throw new Error('Max retries exceeded');
+}
 
 export default function LeaguesPage() {
+    const router = useRouter();
     const [sessionData, setSessionData] = useState<{ entryId: number } | null>(null);
     const [leagues, setLeagues] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        fetch('/api/session/create')
-            .then(res => res.ok ? res.json() : Promise.reject())
-            .then(data => {
+        let mounted = true;
+
+        const loadData = async () => {
+            try {
+                // Try to get session with retry
+                const sessionRes = await fetchWithRetry('/api/session/create');
+                
+                if (!sessionRes.ok) {
+                    if (sessionRes.status === 404) {
+                        // No session found, redirect to login
+                        router.push('/login');
+                        return;
+                    }
+                    throw new Error(`Session error: ${sessionRes.status}`);
+                }
+
+                const data = await sessionRes.json();
+                if (!mounted) return;
+
                 setSessionData(data);
-                return fetch(`/api/fpl/entry/${data.entryId}/`);
-            })
-            .then(res => res.json())
-            .then(async (data) => {
-                console.log('League data:', data.leagues);
+                
+                // Fetch entry data with retry
+                const entryRes = await fetchWithRetry(`/api/fpl/entry/${data.entryId}/`);
+                if (!entryRes.ok) {
+                    throw new Error(`Failed to fetch entry: ${entryRes.status}`);
+                }
 
-                // Fetch detailed standings for each classic league to get total entries
-                if (data.leagues?.classic) {
+                const entryData = await entryRes.json();
+                if (!mounted) return;
+
+                console.log('Entry data:', entryData);
+                console.log('League data:', entryData.leagues);
+                
+                // Check if entries are already in the league objects
+                if (entryData.leagues?.classic) {
+                    entryData.leagues.classic.forEach((league: any) => {
+                        console.log(`League ${league.name} - entries field:`, league.entries);
+                    });
+                }
+
+                // The FPL API entry endpoint should already include entries count in league objects
+                // But if not, we'll fetch it from the league info or standings endpoint
+                if (entryData.leagues?.classic) {
                     const detailedLeagues = await Promise.all(
-                        data.leagues.classic.map(async (league: any) => {
+                        entryData.leagues.classic.map(async (league: any) => {
                             try {
-                                const url = `/api/fpl/leagues-classic/${league.id}/standings/`;
-                                console.log(`Fetching standings from: ${url}`);
-                                const standingsRes = await fetch(url);
+                                // The entry endpoint should provide entries directly
+                                // Check all possible field names
+                                let totalEntries = league.entries || 
+                                                  league.max_entries || 
+                                                  league.total_entries ||
+                                                  null;
+                                
+                                console.log(`League ${league.name} - Initial check:`, {
+                                    entries: league.entries,
+                                    max_entries: league.max_entries,
+                                    total_entries: league.total_entries,
+                                    found: totalEntries
+                                });
 
-                                if (!standingsRes.ok) {
-                                    console.error(`Failed to fetch standings for league ${league.id}, status:`, standingsRes.status);
-                                    return league;
-                                }
-
-                                const standingsData = await standingsRes.json();
-                                console.log(`Standings data for league ${league.id}:`, standingsData);
-
-                                // Calculate total entries
-                                let totalEntries = null;
-
-                                if (standingsData.standings) {
-                                    // If has_next is false, all players are on this page
-                                    if (!standingsData.standings.has_next) {
-                                        totalEntries = standingsData.standings.results?.length || null;
-                                    } else {
-                                        // For paginated leagues, we'd need to fetch all pages or use a different approach
-                                        // For now, we'll estimate based on page size
-                                        const pageSize = standingsData.standings.results?.length || 50;
-                                        // Note: This is an estimate, not exact
-                                        totalEntries = pageSize * 10; // Rough estimate
+                                // If not in entry response, fetch league info endpoint (single request)
+                                if (!totalEntries || totalEntries === 0) {
+                                    try {
+                                        const leagueInfoUrl = `/api/fpl/leagues-classic/${league.id}/`;
+                                        const leagueInfoRes = await fetchWithRetry(leagueInfoUrl, {}, 2);
+                                        
+                                        if (leagueInfoRes.ok) {
+                                            const leagueInfo = await leagueInfoRes.json();
+                                            console.log(`League ${league.name} info response:`, leagueInfo);
+                                            
+                                            // Check all possible locations in the response
+                                            totalEntries = leagueInfo.league?.max_entries || 
+                                                          leagueInfo.league?.total_entries || 
+                                                          leagueInfo.league?.entries ||
+                                                          leagueInfo.max_entries || 
+                                                          leagueInfo.total_entries || 
+                                                          leagueInfo.entries || 
+                                                          null;
+                                            
+                                            console.log(`League ${league.name} from info endpoint:`, totalEntries);
+                                        }
+                                    } catch (error) {
+                                        console.warn(`Failed to fetch league info for ${league.id}:`, error);
                                     }
                                 }
 
-                                console.log(`Total entries for league ${league.name}:`, totalEntries);
+                                // Last resort: fetch first page of standings to get count
+                                // The standings endpoint might have a count field or we can check if it's not paginated
+                                if (!totalEntries || totalEntries === 0) {
+                                    try {
+                                        const url = `/api/fpl/leagues-classic/${league.id}/standings/`;
+                                        const standingsRes = await fetchWithRetry(url, {}, 1); // Single retry only
+
+                                        if (standingsRes.ok) {
+                                            const standingsData = await standingsRes.json();
+                                            console.log(`League ${league.name} standings response structure:`, {
+                                                has_standings: !!standingsData.standings,
+                                                has_results: !!standingsData.standings?.results,
+                                                results_length: standingsData.standings?.results?.length,
+                                                has_next: standingsData.standings?.has_next,
+                                                count: standingsData.standings?.count,
+                                                total: standingsData.standings?.total
+                                            });
+                                            
+                                            if (standingsData.standings) {
+                                                // Check for count/total fields first
+                                                totalEntries = standingsData.standings.count ||
+                                                              standingsData.standings.total ||
+                                                              null;
+                                                
+                                                // If no count field and not paginated, use results length
+                                                if (!totalEntries && !standingsData.standings.has_next) {
+                                                    totalEntries = standingsData.standings.results?.length || null;
+                                                }
+                                                
+                                                // If paginated and no count, we cannot determine accurate total
+                                                // Don't estimate - return null to hide components that need this data
+                                                if (!totalEntries && standingsData.standings.has_next) {
+                                                    console.log(`League ${league.name} is paginated but no count available - cannot determine total`);
+                                                    totalEntries = null;
+                                                }
+                                            }
+                                        }
+                                    } catch (error) {
+                                        console.error(`Failed to fetch standings for league ${league.id}:`, error);
+                                    }
+                                }
+
+                                // Final validation - ensure we have a reasonable number
+                                if (!totalEntries || totalEntries === 0) {
+                                    console.warn(`Could not determine entries for league ${league.name}, using null`);
+                                    totalEntries = null; // Don't use fake defaults
+                                }
+
+                                console.log(`Final total entries for league ${league.name}:`, totalEntries);
 
                                 return {
                                     ...league,
                                     entries: totalEntries
                                 };
                             } catch (error) {
-                                console.error(`Failed to fetch standings for league ${league.id}:`, error);
-                                return league;
+                                console.error(`Failed to process league ${league.id}:`, error);
+                                return {
+                                    ...league,
+                                    entries: league.entries || null // Keep original or null, no fake defaults
+                                };
                             }
                         })
                     );
-                    data.leagues.classic = detailedLeagues;
+                    entryData.leagues.classic = detailedLeagues;
                 }
 
-                console.log('Updated league data with entries:', data.leagues.classic);
-                setLeagues(data.leagues);
-                setIsLoading(false);
-            })
-            .catch(() => redirect('/login'));
-    }, []);
+                console.log('Updated league data with entries:', entryData.leagues.classic);
+                if (mounted) {
+                    setLeagues(entryData.leagues);
+                    setIsLoading(false);
+                }
+            } catch (err) {
+                console.error('[LeaguesPage] Error loading data:', err);
+                if (mounted) {
+                    setError(err instanceof Error ? err.message : 'Failed to load leagues');
+                    setIsLoading(false);
+                    // Only redirect if it's a session error, not a data error
+                    if (err instanceof Error && err.message.includes('Session')) {
+                        setTimeout(() => router.push('/login'), 2000);
+                    }
+                }
+            }
+        };
+
+        loadData();
+
+        return () => {
+            mounted = false;
+        };
+    }, [router]);
+
+    if (error) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="text-center space-y-4 p-4">
+                    <p className="text-lg text-destructive font-semibold">Error loading leagues</p>
+                    <p className="text-sm text-muted-foreground">{error}</p>
+                    <button
+                        onClick={() => {
+                            setError(null);
+                            setIsLoading(true);
+                            router.refresh();
+                        }}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     if (!sessionData || isLoading || !leagues) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="text-center space-y-4">
+                    <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-muted-foreground">Loading leagues...</p>
+                </div>
             </div>
         );
     }
@@ -103,20 +258,20 @@ export default function LeaguesPage() {
 
     return (
         <>
-            <div className="min-h-screen bg-background pb-32">
-                <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+            <div className="min-h-screen bg-background pb-32 pt-16">
+                <div className="max-w-7xl mx-auto p-3 md:p-4 lg:p-6 space-y-4 md:space-y-6">
                     {/* Hero Section - Match Dashboard Style */}
-                    <div className="relative overflow-hidden rounded-3xl bg-card border border-border p-8">
+                    <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card border border-border p-4 md:p-8">
                         <div className="relative z-10">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
-                                    <Trophy className="w-6 h-6 text-primary" />
+                            <div className="flex items-center gap-2 md:gap-3">
+                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
+                                    <Trophy className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                 </div>
                                 <div>
-                                    <h1 className="text-3xl md:text-4xl font-bold text-foreground">
+                                    <h1 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-foreground">
                                         My Leagues
                                     </h1>
-                                    <p className="text-muted-foreground">Compete with friends and rivals</p>
+                                    <p className="text-xs md:text-sm text-muted-foreground">Compete with friends and rivals</p>
                                 </div>
                             </div>
                         </div>
@@ -125,8 +280,8 @@ export default function LeaguesPage() {
                     {/* Classic Leagues */}
                     {leagues.classic && leagues.classic.length > 0 && (
                         <div className="space-y-4">
-                            <h2 className="text-2xl font-bold flex items-center gap-2">
-                                <Award className="w-6 h-6 text-primary" />
+                            <h2 className="text-lg md:text-2xl font-bold flex items-center gap-2">
+                                <Award className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                 Classic Leagues
                             </h2>
 
@@ -160,10 +315,12 @@ export default function LeaguesPage() {
                                                                     {league.league_type === 'x' ? 'Invitational' : 'Public'}
                                                                 </Badge>
                                                             )}
-                                                            <Badge variant="outline">
-                                                                <Users className="w-3 h-3 mr-1" />
-                                                                {league.entries || 'N/A'} managers
-                                                            </Badge>
+                                                            {league.entries && league.entries > 0 && (
+                                                                <Badge variant="outline">
+                                                                    <Users className="w-3 h-3 mr-1" />
+                                                                    {league.entries.toLocaleString()} managers
+                                                                </Badge>
+                                                            )}
                                                         </div>
                                                     </div>
                                                     <div className="text-right">
@@ -173,14 +330,16 @@ export default function LeaguesPage() {
                                                                 #{league.entry_rank}
                                                             </p>
                                                         </div>
-                                                        <p className="text-sm text-muted-foreground">
-                                                            of {league.entries?.toLocaleString() || 'N/A'}
-                                                        </p>
+                                                        {league.entries && league.entries > 0 && (
+                                                            <p className="text-sm text-muted-foreground">
+                                                                of {league.entries.toLocaleString()}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </CardHeader>
                                             <CardContent>
-                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                <div className={`grid gap-4 ${league.entries && league.entries > 0 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3'}`}>
                                                     <div className="text-center p-3 bg-primary/10 rounded-lg">
                                                         <p className="text-xs text-muted-foreground mb-1">Your Rank</p>
                                                         <p className="text-2xl font-bold text-primary">#{league.entry_rank}</p>
@@ -195,16 +354,14 @@ export default function LeaguesPage() {
                                                         <p className="text-xs text-muted-foreground mb-1">Started</p>
                                                         <p className="text-xl font-bold text-blue-600">GW{league.start_event}</p>
                                                     </div>
-                                                    <div className="text-center p-3 bg-orange-500/10 rounded-lg">
-                                                        <p className="text-xs text-muted-foreground mb-1">Top %</p>
-                                                        <p className="text-xl font-bold text-orange-600">
-                                                            {(() => {
-                                                                if (!league.entries || league.entries === 0) return 'N/A';
-                                                                const percentage = (league.entry_rank / league.entries) * 100;
-                                                                return `${percentage.toFixed(1)}%`;
-                                                            })()}
-                                                        </p>
-                                                    </div>
+                                                    {league.entries && league.entries > 0 && (
+                                                        <div className="text-center p-3 bg-orange-500/10 rounded-lg">
+                                                            <p className="text-xs text-muted-foreground mb-1">Top %</p>
+                                                            <p className="text-xl font-bold text-orange-600">
+                                                                {((league.entry_rank / league.entries) * 100).toFixed(1)}%
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {league.entry_last_rank && league.entry_last_rank !== league.entry_rank && (
@@ -253,23 +410,27 @@ export default function LeaguesPage() {
                                                         <Badge variant="outline" className="bg-purple-500/10">
                                                             Head-to-Head
                                                         </Badge>
-                                                        <Badge variant="outline">
-                                                            <Users className="w-3 h-3 mr-1" />
-                                                            {league.entries || 'N/A'} managers
-                                                        </Badge>
+                                                        {league.entries && league.entries > 0 && (
+                                                            <Badge variant="outline">
+                                                                <Users className="w-3 h-3 mr-1" />
+                                                                {league.entries.toLocaleString()} managers
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <div className="flex items-center gap-2 justify-end mb-1">
-                                                        {getRankBadge(league.entry_rank)}
-                                                        <p className={`text-3xl font-black ${getRankColor(league.entry_rank, league.entries || 1)}`}>
-                                                            #{league.entry_rank}
-                                                        </p>
+                                                    <div className="text-right">
+                                                        <div className="flex items-center gap-2 justify-end mb-1">
+                                                            {getRankBadge(league.entry_rank)}
+                                                            <p className={`text-3xl font-black ${getRankColor(league.entry_rank, league.entries || 1)}`}>
+                                                                #{league.entry_rank}
+                                                            </p>
+                                                        </div>
+                                                        {league.entries && league.entries > 0 && (
+                                                            <p className="text-sm text-muted-foreground">
+                                                                of {league.entries.toLocaleString()}
+                                                            </p>
+                                                        )}
                                                     </div>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        of {league.entries?.toLocaleString() || 'N/A'}
-                                                    </p>
-                                                </div>
                                             </div>
                                         </CardHeader>
                                         <CardContent>
@@ -377,7 +538,6 @@ export default function LeaguesPage() {
                     </Card>
                 </div>
             </div>
-            <BottomNav />
         </>
     );
 }

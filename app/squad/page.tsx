@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Shield, Trophy, TrendingUp, ChevronDown, Search, X as XIcon, GitCompare } from "lucide-react";
 import { useFPLData } from "@/lib/hooks/use-fpl-data";
-import { BottomNav } from "@/components/bottom-nav";
 import { InsightsPitchView } from "@/components/insights/insights-pitch-view";
 import { PlayerDetailModal } from "@/components/insights/player-detail-modal";
 import { UpgradeSplitCard } from "@/components/insights/upgrade-split-card";
@@ -36,18 +35,58 @@ function getJerseyNumber(player: any): string | number {
 // ============ END UTILITY FUNCTIONS ============
 
 export default function SquadPage() {
+    const router = useRouter();
     const [sessionData, setSessionData] = useState<{ entryId: number } | null>(null);
     const [currentEventId, setCurrentEventId] = useState<number>();
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
     const [showUpgrades, setShowUpgrades] = useState<boolean>(false);
     const [upgradeSource, setUpgradeSource] = useState<string>('total_points');
+    const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
     useEffect(() => {
-        fetch('/api/session/create')
-            .then(res => res.ok ? res.json() : Promise.reject())
-            .then(data => setSessionData(data))
-            .catch(() => redirect('/login'));
-    }, []);
+        let mounted = true;
+
+        const loadSession = async () => {
+            try {
+                // Retry logic with exponential backoff
+                let res: Response | null = null;
+                for (let i = 0; i < 3; i++) {
+                    try {
+                        res = await fetch('/api/session/create');
+                        if (res.ok || i === 2) break;
+                        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                    } catch (error) {
+                        if (i === 2) throw error;
+                        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                    }
+                }
+
+                if (!res || !res.ok) {
+                    if (res?.status === 404) {
+                        router.push('/login');
+                        return;
+                    }
+                    throw new Error(`Session error: ${res?.status || 'Unknown'}`);
+                }
+
+                const data = await res.json();
+                if (mounted) {
+                    setSessionData(data);
+                }
+            } catch (err) {
+                console.error('[SquadPage] Error loading session:', err);
+                if (mounted && err instanceof Error && err.message.includes('Session')) {
+                    setTimeout(() => router.push('/login'), 2000);
+                }
+            }
+        };
+
+        loadSession();
+
+        return () => {
+            mounted = false;
+        };
+    }, [router]);
 
     const { bootstrap, picks, history, myTeam, isLoading, fixtures } = useFPLData(sessionData?.entryId, currentEventId);
     const [showTeamComparison, setShowTeamComparison] = useState<boolean>(false);
@@ -57,6 +96,15 @@ export default function SquadPage() {
     const [selectedForComparison, setSelectedForComparison] = useState<number[]>([]); // Array of player IDs (max 2)
     const [showComparisonModal, setShowComparisonModal] = useState<boolean>(false);
     const currentEvent = bootstrap?.events?.find((e: any) => e.is_current);
+
+    // Update current time every second for countdown timer
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         if (bootstrap && !currentEventId) {
@@ -450,53 +498,192 @@ export default function SquadPage() {
 
     return (
         <>
-            <div className="min-h-screen bg-background pb-24">
-                <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+            <div className="min-h-screen bg-background pb-24 pt-16">
+                <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-5 md:space-y-6">
                     {/* Hero Section - Match Dashboard Style */}
-                    <div className="relative overflow-hidden rounded-3xl bg-card border border-border p-8">
+                    <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card border border-border p-4 md:p-8">
                         <div className="relative z-10">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
-                                        <Trophy className="w-6 h-6 text-primary" />
+                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-2 md:gap-3">
+                                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
+                                        <Trophy className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                     </div>
                                     <div>
-                                        <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                                        <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground">
                                             Your Squad
                                         </h1>
-                                        <p className="text-muted-foreground">Gameweek {currentEventId}</p>
+                                        <p className="text-sm md:text-base text-muted-foreground">Gameweek {currentEventId}</p>
                                     </div>
                                 </div>
-                                {(() => {
-                                    // Get current system time
-                                    const now = new Date();
-                                    
+                                <Badge variant="default" className="text-xs md:text-sm px-3 md:px-4 py-1.5 md:py-2 w-full md:w-auto justify-center">
+                                    {positionGroups.DEF.length}-{positionGroups.MID.length}-{positionGroups.FWD.length}
+                                </Badge>
+                            </div>
+                            
+                            {/* Deadline Box - Moved here below header */}
+                            {(() => {
                                     // Find the next deadline that is in the future
                                     const upcomingDeadline = bootstrap?.events
                                         ?.map((e: any) => ({
                                             event: e,
                                             deadline: new Date(e.deadline_time)
                                         }))
-                                        .filter(({ deadline }: { deadline: Date }) => deadline > now) // Only future deadlines
+                                        .filter(({ deadline }: { deadline: Date }) => deadline > currentTime) // Only future deadlines
                                         .sort((a: { event: any; deadline: Date }, b: { event: any; deadline: Date }) => a.deadline.getTime() - b.deadline.getTime())[0]; // Sort by earliest first
                                     
                                     if (!upcomingDeadline) return null;
                                     
                                     const deadlineTime = upcomingDeadline.deadline;
                                     
-                                    // Format IST time (Asia/Kolkata is UTC+5:30)
-                                    const formattedDeadlineIST = deadlineTime.toLocaleDateString('en-GB', { 
+                                    // Get user's local timezone and abbreviation
+                                    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                                    
+                                    // Get timezone abbreviation (e.g., IST, CST, EST, PST)
+                                    const getTimezoneAbbr = () => {
+                                        // Try with en-GB locale first as it often returns abbreviations like IST, GMT, etc.
+                                        const formatterGB = new Intl.DateTimeFormat('en-GB', {
+                                            timeZone: userTimezone,
+                                            timeZoneName: 'short'
+                                        });
+                                        const partsGB = formatterGB.formatToParts(new Date());
+                                        const tzNameGB = partsGB.find(part => part.type === 'timeZoneName');
+                                        
+                                        if (tzNameGB && tzNameGB.value && !tzNameGB.value.startsWith('GMT')) {
+                                            return tzNameGB.value;
+                                        }
+                                        
+                                        // Fallback: Try en-US locale
+                                        const formatterUS = new Intl.DateTimeFormat('en-US', {
+                                            timeZone: userTimezone,
+                                            timeZoneName: 'short'
+                                        });
+                                        const partsUS = formatterUS.formatToParts(new Date());
+                                        const tzNameUS = partsUS.find(part => part.type === 'timeZoneName');
+                                        
+                                        if (tzNameUS && tzNameUS.value && !tzNameUS.value.startsWith('GMT')) {
+                                            return tzNameUS.value;
+                                        }
+                                        
+                                        // Fallback: Use timezone name mapping for common timezones
+                                        const tzMap: Record<string, string> = {
+                                            'Asia/Kolkata': 'IST',
+                                            'Asia/Calcutta': 'IST',
+                                            'America/Chicago': 'CST',
+                                            'America/New_York': 'EST',
+                                            'America/Los_Angeles': 'PST',
+                                            'America/Denver': 'MST',
+                                            'Europe/London': 'GMT',
+                                            'Europe/Paris': 'CET',
+                                            'Asia/Tokyo': 'JST',
+                                            'Australia/Sydney': 'AEDT',
+                                            'Australia/Melbourne': 'AEDT',
+                                        };
+                                        
+                                        if (tzMap[userTimezone]) {
+                                            return tzMap[userTimezone];
+                                        }
+                                        
+                                        // Final fallback: Extract from timezone name
+                                        const tzParts = userTimezone.split('/');
+                                        if (tzParts.length > 0) {
+                                            const lastPart = tzParts[tzParts.length - 1];
+                                            // For common patterns, try to extract abbreviation
+                                            return lastPart.replace(/_/g, '').substring(0, 3).toUpperCase();
+                                        }
+                                        
+                                        return 'LOCAL';
+                                    };
+                                    
+                                    const userTimezoneName = getTimezoneAbbr();
+                                    
+                                    // Calculate GMT offset from user's timezone for the deadline date
+                                    const getGMTOffset = () => {
+                                        // Get the timezone offset for the deadline date
+                                        // We need to format the date in the user's timezone and compare with UTC
+                                        const utcTime = deadlineTime.getTime();
+                                        
+                                        // Get local time string in user's timezone
+                                        const localTimeStr = deadlineTime.toLocaleString('en-US', {
+                                            timeZone: userTimezone,
+                                            year: 'numeric',
+                                            month: '2-digit',
+                                            day: '2-digit',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            hour12: false
+                                        });
+                                        
+                                        // Get UTC time string
+                                        const utcTimeStr = deadlineTime.toLocaleString('en-US', {
+                                            timeZone: 'UTC',
+                                            year: 'numeric',
+                                            month: '2-digit',
+                                            day: '2-digit',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            hour12: false
+                                        });
+                                        
+                                        // Parse both to get time components
+                                        const parseTime = (str: string) => {
+                                            const [datePart, timePart] = str.split(', ');
+                                            const [month, day, year] = datePart.split('/');
+                                            const [hour, minute] = timePart.split(':');
+                                            return {
+                                                year: parseInt(year),
+                                                month: parseInt(month) - 1,
+                                                day: parseInt(day),
+                                                hour: parseInt(hour),
+                                                minute: parseInt(minute)
+                                            };
+                                        };
+                                        
+                                        const local = parseTime(localTimeStr);
+                                        const utc = parseTime(utcTimeStr);
+                                        
+                                        // Create date objects (in local browser timezone for comparison)
+                                        const localDate = new Date(local.year, local.month, local.day, local.hour, local.minute);
+                                        const utcDate = new Date(utc.year, utc.month, utc.day, utc.hour, utc.minute);
+                                        
+                                        // Calculate offset in minutes
+                                        const offsetMs = localDate.getTime() - utcDate.getTime();
+                                        const offsetMinutes = Math.round(offsetMs / (1000 * 60));
+                                        
+                                        // Convert to hours and minutes
+                                        const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60);
+                                        const offsetMins = Math.abs(offsetMinutes) % 60;
+                                        const sign = offsetMinutes >= 0 ? '+' : '-';
+                                        
+                                        // Format as GMT+05:30 or GMT-05:00
+                                        if (offsetMins === 0) {
+                                            return `GMT${sign}${offsetHours.toString().padStart(2, '0')}:00`;
+                                        } else {
+                                            return `GMT${sign}${offsetHours.toString().padStart(2, '0')}:${offsetMins.toString().padStart(2, '0')}`;
+                                        }
+                                    };
+                                    
+                                    const gmtOffset = getGMTOffset();
+                                    
+                                    // Format deadline in user's local timezone - separate date and time
+                                    const deadlineDate = deadlineTime.toLocaleDateString('en-GB', { 
                                         weekday: 'long',
                                         day: 'numeric', 
                                         month: 'long',
                                         year: 'numeric',
-                                        hour: '2-digit', 
-                                        minute: '2-digit',
-                                        hour12: false,
-                                        timeZone: 'Asia/Kolkata'
+                                        timeZone: userTimezone
                                     });
                                     
-                                    // Format UTC time for reference (in smaller text)
+                                    const deadlineTimeStr = deadlineTime.toLocaleTimeString('en-GB', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        hour12: false,
+                                        timeZone: userTimezone
+                                    });
+                                    
+                                    // Combine date, time, and timezone: "Saturday, 3 January 2026 at 16:30 IST"
+                                    const formattedDeadlineLocal = `${deadlineDate} at ${deadlineTimeStr} ${userTimezoneName}`;
+                                    
+                                    // Format UTC time for reference (only if different from local)
                                     const formattedDeadlineUTC = deadlineTime.toLocaleDateString('en-GB', { 
                                         weekday: 'short',
                                         day: 'numeric', 
@@ -508,34 +695,105 @@ export default function SquadPage() {
                                         timeZone: 'UTC'
                                     });
                                     
-                                    // Calculate time remaining
-                                    const timeRemaining = deadlineTime.getTime() - now.getTime();
-                                    const hoursRemaining = Math.floor(timeRemaining / (1000 * 60 * 60));
+                                    // Calculate time remaining (updates every second)
+                                    const timeRemaining = Math.max(0, deadlineTime.getTime() - currentTime.getTime());
+                                    const daysRemaining = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
+                                    const hoursRemaining = Math.floor((timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                                     const minutesRemaining = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+                                    const secondsRemaining = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+                                    
+                                    // Format countdown display
+                                    const formatCountdown = () => {
+                                        if (daysRemaining > 0) {
+                                            return `${daysRemaining}d ${hoursRemaining.toString().padStart(2, '0')}h ${minutesRemaining.toString().padStart(2, '0')}m ${secondsRemaining.toString().padStart(2, '0')}s`;
+                                        } else if (hoursRemaining > 0) {
+                                            return `${hoursRemaining}h ${minutesRemaining.toString().padStart(2, '0')}m ${secondsRemaining.toString().padStart(2, '0')}s`;
+                                        } else if (minutesRemaining > 0) {
+                                            return `${minutesRemaining}m ${secondsRemaining.toString().padStart(2, '0')}s`;
+                                        } else {
+                                            return `${secondsRemaining}s`;
+                                        }
+                                    };
                                     
                                     return (
-                                        <div className="text-center">
-                                            <p className="text-xs text-muted-foreground mb-1">Next Deadline</p>
-                                            <p className="text-sm font-bold text-white">{formattedDeadlineIST} IST</p>
-                                            <p className="text-[10px] text-orange-300/70 mt-0.5">
-                                                {formattedDeadlineUTC} UTC
-                                            </p>
-                                            {hoursRemaining >= 0 && (
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    {hoursRemaining > 24 
-                                                        ? `${Math.floor(hoursRemaining / 24)}d ${hoursRemaining % 24}h`
-                                                        : hoursRemaining > 0
-                                                        ? `${hoursRemaining}h ${minutesRemaining}m`
-                                                        : `${minutesRemaining}m`
-                                                    } remaining
-                                                </p>
-                                            )}
+                                        <div className="mt-4 w-full">
+                                            <div className="text-center md:text-left bg-card/50 rounded-lg p-3 md:p-4 border border-primary/20">
+                                                <p className="text-xs md:text-sm text-muted-foreground mb-2 font-semibold uppercase tracking-wide">Next Deadline</p>
+                                                
+                                                {/* Date and Time - Larger and clearer */}
+                                                <div className="mb-3">
+                                                    <p className="text-sm md:text-base font-bold text-foreground leading-tight mb-1">
+                                                        {formattedDeadlineLocal}
+                                                    </p>
+                                                    {/* GMT offset and UTC time in a row */}
+                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                        <p className="text-[10px] md:text-xs text-muted-foreground">
+                                                            {gmtOffset}
+                                                        </p>
+                                                        {userTimezoneName !== 'UTC' && (
+                                                            <>
+                                                                <span className="text-[10px] md:text-xs text-muted-foreground">•</span>
+                                                                <p className="text-[10px] md:text-xs text-muted-foreground">
+                                                                    {formattedDeadlineUTC} UTC
+                                                                </p>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Live Countdown Timer - Prominent */}
+                                                {timeRemaining > 0 ? (
+                                                    <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-lg p-2 md:p-3 border-2 border-orange-500/40">
+                                                        <p className="text-[10px] md:text-xs text-muted-foreground mb-1 font-semibold uppercase">Time Remaining</p>
+                                                        <p className="text-lg md:text-2xl font-black text-orange-400 font-mono tracking-wider">
+                                                            {formatCountdown()}
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-red-500/20 rounded-lg p-2 md:p-3 border-2 border-red-500/40">
+                                                        <p className="text-sm md:text-base font-bold text-red-400">Deadline Passed</p>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     );
                                 })()}
-                                <Badge variant="default" className="text-sm px-4 py-2">
-                                    {positionGroups.DEF.length}-{positionGroups.MID.length}-{positionGroups.FWD.length}
-                                </Badge>
+                            
+                            {/* Action Buttons - Moved here underneath header */}
+                            <div className="flex items-center gap-3 mt-4">
+                                <button
+                                    onClick={() => {
+                                        setShowUpgrades(true);
+                                        // Scroll to upgrade section after a brief delay to ensure it's rendered
+                                        setTimeout(() => {
+                                            const upgradeSection = document.getElementById('upgrade-recommendations');
+                                            if (upgradeSection) {
+                                                upgradeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                            }
+                                        }, 100);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg hover:from-orange-600 hover:to-orange-700 transition-all"
+                                >
+                                    <TrendingUp className="w-4 h-4" />
+                                    <span>Improve</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowUpgrades(true);
+                                        setShowTeamComparison(true);
+                                        // Scroll to upgrade section after a brief delay to ensure it's rendered
+                                        setTimeout(() => {
+                                            const upgradeSection = document.getElementById('upgrade-recommendations');
+                                            if (upgradeSection) {
+                                                upgradeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                            }
+                                        }, 100);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all"
+                                >
+                                    <GitCompare className="w-4 h-4" />
+                                    <span>Compare Team vs Database</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -553,67 +811,142 @@ export default function SquadPage() {
                         isSquadView={true}
                     />
 
-                    {/* Upgrade Recommendations Toggle */}
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setShowUpgrades(!showUpgrades)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg hover:from-orange-600 hover:to-orange-700 transition-all"
-                        >
-                            <TrendingUp className="w-4 h-4" />
-                            <span>Improve</span>
-                        </button>
-                        <button
-                            onClick={() => setShowTeamComparison(!showTeamComparison)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all"
-                        >
-                            <GitCompare className="w-4 h-4" />
-                            <span>Compare Team vs Database</span>
-                        </button>
-                        {showUpgrades && (
-                            <>
-                                <span className="text-sm font-semibold text-gray-300">By</span>
-                                <div className="relative">
-                                    <select
-                                        value={upgradeSource}
-                                        onChange={(e) => setUpgradeSource(e.target.value)}
-                                        className="appearance-none bg-card border border-primary/30 rounded-lg px-4 py-2 pr-10 text-sm font-medium cursor-pointer hover:border-primary/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                                    >
-                                        <optgroup label="Analysis">
-                                            <option value="overall">Overall (Multi-Metric Analysis)</option>
-                                        </optgroup>
-                                        <optgroup label="Performance">
-                                            <option value="gw_points">Last GW Points</option>
-                                            <option value="total_points">Total Points (Season)</option>
-                                            <option value="points_per_game">Points per Game</option>
-                                            <option value="form">Form (Average)</option>
-                                            <option value="expected">Expected Points (Next)</option>
-                                        </optgroup>
-                                        <optgroup label="Value & Metrics">
-                                            <option value="value">Value (Pts/£m)</option>
-                                            <option value="ict">ICT Index</option>
-                                            <option value="influence">Influence</option>
-                                            <option value="creativity">Creativity</option>
-                                            <option value="threat">Threat</option>
-                                        </optgroup>
-                                        <optgroup label="Attacking">
-                                            <option value="goals">Goals Scored</option>
-                                            <option value="assists">Assists</option>
-                                            <option value="bonus">Bonus Points</option>
-                                        </optgroup>
-                                        <optgroup label="Defensive">
-                                            <option value="clean_sheets">Clean Sheets</option>
-                                            <option value="saves">Saves (GK)</option>
-                                        </optgroup>
-                                    </select>
-                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-muted-foreground" />
+                    {/* Substitutes Bench with Realistic Stadium Stand Design */}
+                    {bench.length > 0 && (
+                        <div className="relative overflow-hidden rounded-2xl border-2 border-orange-500/40 shadow-xl">
+                            {/* Stadium Bench Background */}
+                            <div className="relative bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 p-4">
+                                {/* Stadium Back Wall / Roof Shadow */}
+                                <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-slate-900/80 via-slate-800/60 to-transparent"></div>
+
+                                {/* Bench Backrest Support */}
+                                <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-slate-900/90 to-slate-800/70">
+                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-slate-600/50 to-transparent"></div>
                                 </div>
-                            </>
-                        )}
-                    </div>
+
+                                {/* Bench Seating Area - Wooden Planks (Reduced Height) */}
+                                <div className="relative mt-8 mb-2" style={{ minHeight: '120px' }}>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-amber-800/90 via-amber-700/85 to-amber-900/90 rounded-lg shadow-inner"></div>
+                                    <div className="absolute inset-0 flex flex-col gap-0.5 p-1">
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                            <div
+                                                key={i}
+                                                className="flex-1 bg-gradient-to-r from-amber-700/80 via-amber-600/90 to-amber-700/80 rounded-sm shadow-sm border-t border-amber-500/30 border-b border-amber-900/40"
+                                                style={{
+                                                    backgroundImage: `
+                                                        repeating-linear-gradient(
+                                                            90deg,
+                                                            rgba(180, 83, 9, 0.4) 0px,
+                                                            rgba(180, 83, 9, 0.4) 1px,
+                                                            rgba(154, 52, 18, 0.3) 1px,
+                                                            rgba(154, 52, 18, 0.3) 3px
+                                                        )
+                                                    `,
+                                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3), inset 0 -1px 1px rgba(255,255,255,0.1)'
+                                                }}
+                                            ></div>
+                                        ))}
+                                    </div>
+                                    <div className="absolute inset-0" style={{
+                                        backgroundImage: `
+                                            repeating-linear-gradient(
+                                                0deg,
+                                                transparent 0px,
+                                                transparent 23px,
+                                                rgba(0, 0, 0, 0.2) 23px,
+                                                rgba(0, 0, 0, 0.2) 24px,
+                                                transparent 24px,
+                                                transparent 47px
+                                            )
+                                        `,
+                                        backgroundSize: '100% 47px'
+                                    }}></div>
+                                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500/40 via-amber-400/50 to-amber-500/40"></div>
+                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-t from-black/40 to-transparent rounded-b-lg"></div>
+                                </div>
+
+                                {/* Floor/Base Platform */}
+                                <div className="relative h-2 bg-gradient-to-b from-slate-700/80 to-slate-800/90 rounded-b-lg shadow-inner">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent"></div>
+                                    <div className="absolute -top-1 left-0 right-0 h-1 bg-gradient-to-b from-slate-900/60 to-transparent"></div>
+                                </div>
+
+                                {/* Ambient Lighting */}
+                                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/20 pointer-events-none"></div>
+                                <div className="absolute top-8 left-0 right-0 h-24 bg-gradient-to-b from-orange-500/5 to-transparent pointer-events-none"></div>
+
+                                {/* Title Section */}
+                                <div className="relative z-20 mb-4 text-center">
+                                    <h2 className="text-xl font-black text-white drop-shadow-lg tracking-wide">Substitutes Bench</h2>
+                                    <p className="text-xs text-amber-100/90 font-semibold drop-shadow-md">Reserves & Substitutes</p>
+                                </div>
+
+                                {/* Players Cards Grid - Elevated on Bench */}
+                                <div className="relative z-20 -mt-6 mb-2">
+                                    <div className="bg-gradient-to-b from-transparent via-amber-800/5 to-transparent rounded-lg p-1">
+                                        <InsightsPitchView
+                                            players={bench.map((pick: any) => getPlayer(pick.element)).filter((p: any) => p)}
+                                            teams={teams || []}
+                                            fixtures={fixtures || []}
+                                            currentEvent={currentEvent?.id || currentEventId || 1}
+                                            onPlayerClick={(player) => setSelectedPlayer(player)}
+                                            showRanks={false}
+                                            compactLayout={true}
+                                            picksMap={picksMap}
+                                            getExpectedPoints={getExpectedPoints}
+                                            isSquadView={true}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Upgrade Source Selector - Only show when upgrades are visible */}
+                    {showUpgrades && (
+                        <div className="flex items-center gap-3 mb-4">
+                            <span className="text-sm font-semibold text-muted-foreground">Filter By:</span>
+                            <div className="relative">
+                                <select
+                                    value={upgradeSource}
+                                    onChange={(e) => setUpgradeSource(e.target.value)}
+                                    className="appearance-none bg-card border border-primary/30 rounded-lg px-4 py-2 pr-10 text-sm font-medium cursor-pointer hover:border-primary/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                                >
+                                    <optgroup label="Analysis">
+                                        <option value="overall">Overall (Multi-Metric Analysis)</option>
+                                    </optgroup>
+                                    <optgroup label="Performance">
+                                        <option value="gw_points">Last GW Points</option>
+                                        <option value="total_points">Total Points (Season)</option>
+                                        <option value="points_per_game">Points per Game</option>
+                                        <option value="form">Form (Average)</option>
+                                        <option value="expected">Expected Points (Next)</option>
+                                    </optgroup>
+                                    <optgroup label="Value & Metrics">
+                                        <option value="value">Value (Pts/£m)</option>
+                                        <option value="ict">ICT Index</option>
+                                        <option value="influence">Influence</option>
+                                        <option value="creativity">Creativity</option>
+                                        <option value="threat">Threat</option>
+                                    </optgroup>
+                                    <optgroup label="Attacking">
+                                        <option value="goals">Goals Scored</option>
+                                        <option value="assists">Assists</option>
+                                        <option value="bonus">Bonus Points</option>
+                                    </optgroup>
+                                    <optgroup label="Defensive">
+                                        <option value="clean_sheets">Clean Sheets</option>
+                                        <option value="saves">Saves (GK)</option>
+                                    </optgroup>
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-muted-foreground" />
+                            </div>
+                        </div>
+                    )}
 
                     {/* Upgrade Recommendations Section */}
                     {showUpgrades && (
-                        <Card className="border-primary/30 bg-gradient-to-br from-primary/10 to-accent/10">
+                        <Card id="upgrade-recommendations" className="border-primary/30 bg-gradient-to-br from-primary/10 to-accent/10">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <Trophy className="w-5 h-5 text-primary" />
@@ -694,7 +1027,7 @@ export default function SquadPage() {
                                                         upgradeSource === 'bonus' ? 'Bonus Points' :
                                                         upgradeSource === 'clean_sheets' ? 'Clean Sheets' :
                                                         'Saves Made (Goalkeepers)'
-                                                    } • Each player gets unique suggestions
+                                                    } · Each player gets unique suggestions
                                                 </>
                                             )}
                                         </p>
@@ -894,7 +1227,7 @@ export default function SquadPage() {
                                             <div className="flex items-center justify-between">
                                                 <p className="text-sm text-muted-foreground">
                                                     Showing <span className="font-bold text-white">{filteredPlayers.length}</span> players from database
-                                                    {myTeamPlayerIds.size > 0 && ` • Your team: ${myTeamPlayerIds.size} players`}
+                                                    {myTeamPlayerIds.size > 0 && ` · Your team: ${myTeamPlayerIds.size} players`}
                                                 </p>
                                                 {selectedForComparison.length > 0 && (
                                                     <div className="flex items-center gap-2">
@@ -1054,111 +1387,6 @@ export default function SquadPage() {
                         </Card>
                     )}
 
-                    {/* Substitutes Bench with Realistic Stadium Stand Design */}
-                    <div className="relative overflow-hidden rounded-2xl border-2 border-orange-500/40 shadow-xl">
-                        {/* Stadium Bench Background */}
-                        <div className="relative bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 p-4">
-                            {/* Stadium Back Wall / Roof Shadow */}
-                            <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-slate-900/80 via-slate-800/60 to-transparent"></div>
-                            
-                            {/* Bench Backrest Support */}
-                            <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-slate-900/90 to-slate-800/70">
-                                {/* Horizontal Support Beam */}
-                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-slate-600/50 to-transparent"></div>
-                            </div>
-
-                            {/* Bench Seating Area - Wooden Planks (Reduced Height) */}
-                            <div className="relative mt-8 mb-2" style={{ minHeight: '120px' }}>
-                                {/* Wooden Plank Texture Base */}
-                                <div className="absolute inset-0 bg-gradient-to-br from-amber-800/90 via-amber-700/85 to-amber-900/90 rounded-lg shadow-inner"></div>
-                                
-                                {/* Individual Wooden Planks (Fewer planks for shorter bench) */}
-                                <div className="absolute inset-0 flex flex-col gap-0.5 p-1.5">
-                                    {Array.from({ length: 5 }).map((_, i) => (
-                                        <div 
-                                            key={i}
-                                            className="flex-1 bg-gradient-to-r from-amber-700/80 via-amber-600/90 to-amber-700/80 rounded-sm shadow-sm border-t border-amber-500/30 border-b border-amber-900/40"
-                                            style={{
-                                                backgroundImage: `
-                                                    repeating-linear-gradient(
-                                                        90deg,
-                                                        rgba(180, 83, 9, 0.3) 0px,
-                                                        rgba(180, 83, 9, 0.3) 1px,
-                                                        rgba(154, 52, 18, 0.2) 1px,
-                                                        rgba(154, 52, 18, 0.2) 3px
-                                                    )
-                                                `,
-                                                boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.2), inset 0 -1px 1px rgba(255,255,255,0.1)'
-                                            }}
-                                        ></div>
-                                    ))}
-                                </div>
-
-                                {/* Bench Plank Gaps/Shadows */}
-                                <div className="absolute inset-0" style={{
-                                    backgroundImage: `
-                                        repeating-linear-gradient(
-                                            0deg,
-                                            transparent 0px,
-                                            transparent 23px,
-                                            rgba(0, 0, 0, 0.15) 23px,
-                                            rgba(0, 0, 0, 0.15) 24px,
-                                            transparent 24px,
-                                            transparent 47px
-                                        )
-                                    `,
-                                    backgroundSize: '100% 47px'
-                                }}></div>
-                                
-                                {/* 3D Depth - Top Edge Highlight */}
-                                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500/40 via-amber-400/50 to-amber-500/40"></div>
-                                
-                                {/* 3D Depth - Bottom Edge Shadow */}
-                                <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-t from-black/30 to-transparent rounded-b-lg"></div>
-                            </div>
-                            
-                            {/* Floor/Base Platform (Reduced Height) */}
-                            <div className="relative h-2 bg-gradient-to-b from-slate-700/80 to-slate-800/90 rounded-b-lg shadow-inner">
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent"></div>
-                                {/* Support Beams */}
-                                <div className="absolute -top-1 left-0 right-0 h-1 bg-gradient-to-b from-slate-900/60 to-transparent"></div>
-                                            </div>
-                            
-                            {/* Ambient Lighting Effects (Subtle) */}
-                            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/15 pointer-events-none"></div>
-                            
-                            {/* Header Section (Compact) */}
-                            <div className="relative z-20 mb-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-700/80 to-amber-900/80 border-2 border-amber-600/60 flex items-center justify-center shadow-md backdrop-blur-sm">
-                                        <Users className="w-5 h-5 text-amber-100 drop-shadow-md" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl font-black text-white drop-shadow-lg tracking-wide">Substitutes Bench</h2>
-                                        <p className="text-xs text-amber-100/90 font-semibold drop-shadow-md">Reserves & Substitutes</p>
-                                    </div>
-                                    </div>
-                                </div>
-
-                            {/* Players Cards Grid - Elevated on Bench */}
-                            <div className="relative z-20 -mt-6 mb-2">
-                                <div className="bg-gradient-to-b from-transparent via-amber-800/5 to-transparent rounded-lg p-2">
-                                    <InsightsPitchView
-                                        players={bench.map((pick: any) => getPlayer(pick.element)).filter((p: any) => p)}
-                                        teams={teams || []}
-                                        fixtures={fixtures || []}
-                                        currentEvent={currentEvent?.id || currentEventId || 1}
-                                        onPlayerClick={(player) => setSelectedPlayer(player)}
-                                        showRanks={false}
-                                        compactLayout={true}
-                                        picksMap={picksMap}
-                                        getExpectedPoints={getExpectedPoints}
-                                        isSquadView={true}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
             {/* Player Comparison Modal */}
@@ -1195,7 +1423,6 @@ export default function SquadPage() {
                 currentEvent={currentEvent?.id || currentEventId || 1}
                 onClose={() => setSelectedPlayer(null)}
             />
-            <BottomNav />
         </>
     );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, X, Cross, Ban, Eye } from 'lucide-react';
+import { X, Cross, Ban, Eye } from 'lucide-react';
 import { FixtureDifficulty } from './fixture-difficulty';
 import { getPlayerPhotoUrls, getTeamBadgeUrl, getPlayerInitials } from '@/lib/player-photo-utils';
 import { useState } from 'react';
@@ -19,9 +19,10 @@ interface InsightsPitchViewProps {
     isHistoryView?: boolean; // History-specific card layout (show expected vs actual points)
     getHistoricalExpectedPoints?: (player: any) => number; // Function to get expected points for historical GW
     getHistoricalActualPoints?: (playerId: number) => number | null; // Function to get actual points for historical GW
+    getHistoricalGWStats?: (playerId: number) => any | null; // Function to get historical gameweek stats
 }
 
-function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, onClick, showRank = true, pick, expectedPoints, isSquadView = false, isHistoryView = false, getHistoricalExpectedPoints, getHistoricalActualPoints }: any) {
+function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, onClick, showRank = true, pick, expectedPoints, isSquadView = false, isHistoryView = false, getHistoricalExpectedPoints, getHistoricalActualPoints, getHistoricalGWStats }: any) {
     const [photoUrlIndex, setPhotoUrlIndex] = useState(0);
     const [photoFailed, setPhotoFailed] = useState(false);
     const photoUrls = getPlayerPhotoUrls({ code: player.code, photo: player.photo, web_name: player.web_name, team: player.team });
@@ -115,7 +116,7 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
     return (
         <button
             onClick={onClick}
-            className="relative group w-full aspect-[5/7]"
+            className="relative group w-full aspect-[9/16] max-w-[48px] sm:max-w-[140px] md:max-w-[150px] lg:max-w-[160px]"
         >
             <div className={`relative bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-0.5 shadow-xl hover:shadow-2xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-105 border-2 border-gray-700/60 h-full overflow-hidden ${
                 isInjured 
@@ -139,72 +140,72 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                         }`} />
                         
                         {/* Medical Cross Icon - Top Left */}
-                        <div className={`absolute -top-1 -left-1 z-50 w-6 h-6 rounded-full flex items-center justify-center shadow-xl border-2 ${
+                        <div className={`absolute top-0 left-0 z-50 w-5 h-5 rounded-full flex items-center justify-center shadow-xl border-2 ${
                             injurySeverity === 'severe'
                                 ? 'bg-red-600 border-red-400'
                                 : injurySeverity === 'moderate'
                                 ? 'bg-orange-500 border-orange-300'
                                 : 'bg-yellow-500 border-yellow-300'
                         }`}>
-                            <Cross className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                            <Cross className="w-3 h-3 text-white" strokeWidth={3} />
                         </div>
                     </>
                 )}
 
                 {/* Suspended Tag - Top Left (if not C/VC and not injured) */}
                 {isSuspended && !pick?.is_captain && !pick?.is_vice_captain && !isInjured && (
-                    <div className="absolute -top-1 -left-1 z-50 bg-gradient-to-br from-gray-800 to-gray-900 text-white px-2 py-0.5 rounded-br-lg rounded-tl-xl shadow-xl border-2 border-gray-600 flex items-center gap-1">
-                        <Ban className="w-3 h-3" />
-                        <span className="text-[8px] font-black uppercase">SUSP</span>
+                    <div className="absolute top-0 left-0 z-50 bg-gradient-to-br from-gray-800 to-gray-900 text-white px-1.5 py-0.5 rounded-br-lg rounded-tl-xl shadow-xl border-2 border-gray-600 flex items-center gap-1">
+                        <Ban className="w-2.5 h-2.5" />
+                        <span className="text-[7px] font-black uppercase">SUSP</span>
                     </div>
                 )}
 
                 {/* Suspended Tag - Top Right (if C/VC badge exists or if injured) */}
                 {isSuspended && (pick?.is_captain || pick?.is_vice_captain || isInjured) && (
-                    <div className="absolute top-1 right-1 z-50 bg-gradient-to-br from-gray-800 to-gray-900 text-white px-2 py-0.5 rounded-lg shadow-xl border-2 border-gray-600 flex items-center gap-1">
-                        <Ban className="w-3 h-3" />
-                        <span className="text-[8px] font-black uppercase">SUSP</span>
+                    <div className="absolute top-0.5 right-0.5 z-50 bg-gradient-to-br from-gray-800 to-gray-900 text-white px-1.5 py-0.5 rounded-lg shadow-xl border-2 border-gray-600 flex items-center gap-1">
+                        <Ban className="w-2.5 h-2.5" />
+                        <span className="text-[7px] font-black uppercase">SUSP</span>
                     </div>
                 )}
 
                 {/* Captain Badge - Top Left (if not injured) */}
                 {pick?.is_captain && !isInjured && (
-                    <div className="absolute -top-2 -left-2 w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-xl z-30 border-3 border-yellow-300">
-                        <span className="text-[9px] font-black text-yellow-900">C</span>
+                    <div className="absolute top-0 left-0 w-7 h-7 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-xl z-30 border-2 border-yellow-300">
+                        <span className="text-[8px] font-black text-yellow-900">C</span>
                     </div>
                 )}
                 {/* Vice Captain Badge - Top Left (if not captain and not injured) */}
                 {pick?.is_vice_captain && !pick?.is_captain && !isInjured && (
-                    <div className="absolute -top-2 -left-2 w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center shadow-xl z-30 border-3 border-gray-300">
-                        <span className="text-[9px] font-black text-gray-900">VC</span>
+                    <div className="absolute top-0 left-0 w-7 h-7 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center shadow-xl z-30 border-2 border-gray-300">
+                        <span className="text-[8px] font-black text-gray-900">VC</span>
                     </div>
                 )}
                 {/* Captain Badge - Top Right (if injured) */}
                 {pick?.is_captain && isInjured && (
-                    <div className="absolute -top-2 -right-2 w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-xl z-30 border-3 border-yellow-300">
-                        <span className="text-[9px] font-black text-yellow-900">C</span>
+                    <div className="absolute top-0 right-0 w-5 h-5 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-xl z-30 border-2 border-yellow-300">
+                        <span className="text-[6px] font-black text-yellow-900">C</span>
                     </div>
                 )}
                 {/* Vice Captain Badge - Top Right (if captain exists and injured, or if injured) */}
                 {pick?.is_vice_captain && !pick?.is_captain && isInjured && (
-                    <div className="absolute -top-2 -right-2 w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center shadow-xl z-30 border-3 border-gray-300">
-                        <span className="text-[9px] font-black text-gray-900">VC</span>
+                    <div className="absolute top-0 right-0 w-5 h-5 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center shadow-xl z-30 border-2 border-gray-300">
+                        <span className="text-[6px] font-black text-gray-900">VC</span>
                     </div>
                 )}
-                {/* Rank Badge - Top Right (only if no C/VC badge and not suspended/injured) */}
+                {/* Rank Badge - Top Left (only if no C/VC badge and not suspended/injured) */}
                 {rank && showRank && !pick?.is_captain && !pick?.is_vice_captain && !isSuspended && !isInjured && (
-                    <div className="absolute -top-2 -right-2 w-9 h-9 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-lg z-20 border-3 border-yellow-300">
-                        <span className="text-[10px] font-black text-yellow-900">#{rank}</span>
+                    <div className="absolute top-0 left-0 w-4 h-4 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-lg z-20 border-2 border-yellow-300">
+                        <span className="text-[6px] font-black text-yellow-900">#{rank}</span>
                     </div>
                 )}
 
-                <div className={`bg-gradient-to-br from-gray-50 to-white overflow-hidden h-full flex flex-col border-2 border-gray-300/70 ${isSquadView ? 'rounded-xl' : 'rounded-lg'}`}>
+                <div className={`bg-gradient-to-br from-gray-50 to-white overflow-hidden h-full flex flex-col border-2 border-gray-300/70 ${isSquadView ? 'rounded-xl' : 'rounded-lg'}`} style={{ maxHeight: '100%' }}>
                     {isSquadView ? (
                         <>
                             {/* Squad View Format: Top Section (Solid Team Color) with Team Badge */}
-                            <div className={`relative flex-shrink-0 ${colors.accent} flex items-center justify-center overflow-hidden`} style={{ height: '38%' }}>
+                            <div className={`relative flex-shrink-0 ${colors.accent} flex items-center justify-center overflow-hidden`} style={{ height: '22%' }}>
                                 {/* Player Photo */}
-                                <div className="relative z-10 w-14 h-14 rounded-full overflow-hidden border-3 border-white shadow-xl bg-gradient-to-br from-white to-gray-100">
+                                <div className="relative z-10 w-6 h-6 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full overflow-hidden border-2 border-white shadow-xl bg-gradient-to-br from-white to-gray-100">
                                     {!photoFailed ? (
                                         <img
                                             key={photoUrlIndex}
@@ -214,7 +215,7 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                                             onError={handlePhotoError}
                                         />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-orange-800 bg-white">
+                                        <div className="w-full h-full flex items-center justify-center text-lg md:text-2xl font-bold text-orange-800 bg-white">
                                             {getPlayerInitials(player.web_name)}
                                         </div>
                                     )}
@@ -223,11 +224,11 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                                 {/* Team Badge - Top Right Corner */}
                                 {team && (
                                     <div className="absolute top-1 right-1 z-10">
-                                        <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-white/70 overflow-hidden">
+                                        <div className="w-3 h-3 sm:w-6 sm:h-6 md:w-7 md:h-7 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-white/70 overflow-hidden">
                                             <img
                                                 src={getTeamBadgeUrl(team.code)}
                                                 alt={team.short_name}
-                                                className="w-5 h-5 object-contain"
+                                                className="w-2.5 h-2.5 sm:w-5 sm:h-5 md:w-6 md:h-6 object-contain"
                                                 onError={(e) => {
                                                     const img = e.currentTarget;
                                                     img.style.display = 'none';
@@ -243,11 +244,11 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                             </div>
 
                             {/* Middle Section (Dark Blue/Black) with Name, Team, Position Badge - Slim and Consistent */}
-                            <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 text-white px-1.5 py-0.5 text-center flex-shrink-0" style={{ height: '40px' }}>
-                                <p className="text-[10px] font-black tracking-wide uppercase truncate drop-shadow-lg leading-tight">{player.web_name}</p>
-                                <p className="text-[8px] text-white font-semibold truncate leading-tight mt-0.5">{team?.short_name}</p>
+                            <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 text-white px-0.5 sm:px-3 md:px-4 py-0.5 text-center flex-shrink-0" style={{ minHeight: '22px', height: 'auto' }}>
+                                <p className="text-[8px] sm:text-xs md:text-sm font-black tracking-wide uppercase truncate drop-shadow-lg leading-tight">{player.web_name}</p>
+                                <p className="text-[7px] sm:text-[10px] md:text-xs text-gray-200 font-semibold truncate leading-tight mt-0.5">{team?.short_name}</p>
                                 <div className="flex justify-center mt-0.5">
-                                    <div className={`${colors.accent} text-white px-1.5 py-0.5 text-[7px] font-bold shadow-md rounded`}>
+                                    <div className={`${colors.accent} text-white px-0.5 sm:px-2 md:px-2.5 py-0.5 text-[7px] sm:text-[9px] md:text-[10px] font-bold shadow-md rounded`}>
                                         {positionName}
                                     </div>
                                 </div>
@@ -256,13 +257,13 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                     ) : (
                         <>
                             {/* Default View: Top Section: Player Photo + Team Badge */}
-                            <div className={`relative flex-shrink-0 bg-gradient-to-br ${colors.primary} ${colors.text} flex items-center justify-center overflow-hidden`} style={{ height: '35%' }}>
+                            <div className={`relative flex-shrink-0 bg-gradient-to-br ${colors.primary} ${colors.text} flex items-center justify-center overflow-hidden`} style={{ height: '22%' }}>
                                 <div className="absolute inset-0 opacity-10">
                                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.2),transparent_60%)]" />
                                 </div>
 
                                 {/* Player Photo */}
-                                <div className="relative z-10 w-14 h-14 rounded-full overflow-hidden border-3 border-white shadow-xl bg-gradient-to-br from-white to-gray-100">
+                                <div className="relative z-10 w-6 h-6 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full overflow-hidden border-2 border-white shadow-xl bg-gradient-to-br from-white to-gray-100">
                                     {!photoFailed ? (
                                         <img
                                             key={photoUrlIndex}
@@ -272,7 +273,7 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                                             onError={handlePhotoError}
                                         />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-orange-800 bg-white">
+                                        <div className="w-full h-full flex items-center justify-center text-lg md:text-2xl font-bold text-orange-800 bg-white">
                                             {getPlayerInitials(player.web_name)}
                                         </div>
                                     )}
@@ -281,11 +282,11 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                                 {/* Team Badge - Top Right Corner */}
                                 {team && (
                                     <div className="absolute top-1 right-1 z-10">
-                                        <div className={`w-7 h-7 ${colors.accent} rounded-full flex items-center justify-center shadow-lg border-2 border-white/70 overflow-hidden bg-white`}>
+                                        <div className={`w-3 h-3 sm:w-7 sm:h-7 md:w-8 md:h-8 ${colors.accent} rounded-full flex items-center justify-center shadow-lg border-2 border-white/70 overflow-hidden bg-white`}>
                                             <img
                                                 src={getTeamBadgeUrl(team.code)}
                                                 alt={team.short_name}
-                                                className="w-5 h-5 object-contain"
+                                                className="w-2.5 h-2.5 sm:w-5 sm:h-5 md:w-6 md:h-6 object-contain"
                                                 onError={(e) => {
                                                     const img = e.currentTarget;
                                                     img.style.display = 'none';
@@ -301,52 +302,127 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                             </div>
 
                             {/* Center Bar: Player Name */}
-                            <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 text-white px-1.5 py-1 text-center border-y border-white/10 flex-shrink-0">
-                                <p className="text-[10px] font-black tracking-wide uppercase truncate drop-shadow-lg leading-tight">{player.web_name}</p>
-                                <p className="text-[8px] text-gray-300 font-semibold truncate">{team?.short_name}</p>
+                            <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 text-white px-0.5 sm:px-3 md:px-4 py-0.5 text-center border-y border-white/10 flex-shrink-0">
+                                <p className="text-[8px] sm:text-xs md:text-sm font-black tracking-wide uppercase truncate drop-shadow-lg leading-tight">{player.web_name}</p>
+                                <p className="text-[7px] sm:text-[10px] md:text-xs text-gray-300 font-semibold truncate">{team?.short_name}</p>
                             </div>
 
                             {/* Position Badge */}
                             <div className="flex justify-center -mt-1 relative z-10 flex-shrink-0">
-                                <div className={`bg-gradient-to-r ${colors.primary} text-white px-2 py-0.5 text-[8px] font-bold shadow-md rounded`}>
+                                <div className={`bg-gradient-to-r ${colors.primary} text-white px-0.5 sm:px-2 md:px-2.5 py-0.5 text-[7px] sm:text-[9px] md:text-[10px] font-bold shadow-md rounded`}>
                                     {positionName}
                                 </div>
                             </div>
                         </>
                     )}
 
-                    <div className={`flex-1 flex flex-col justify-center p-2 min-h-0`}>
+                    <div className={`flex-1 flex flex-col justify-start p-1 sm:p-2 md:p-2.5 min-h-0 overflow-visible`} style={{ minHeight: '0' }}>
                         {isHistoryView ? (
                             <>
-                                {/* History View: Expected Points (Left) vs Actual Points (Right) */}
+                                {/* History View: Expected vs Actual Points + Gameweek Stats */}
                                 {(() => {
                                     const historicalXPoints = getHistoricalExpectedPoints ? getHistoricalExpectedPoints(player) : 0;
                                     const historicalActualPoints = getHistoricalActualPoints ? getHistoricalActualPoints(player.id) : null;
                                     const difference = historicalActualPoints !== null ? (historicalActualPoints - historicalXPoints) : null;
+                                    const gwStats = getHistoricalGWStats ? getHistoricalGWStats(player.id) : null;
+                                    const positionType = player.element_type; // 1=GKP, 2=DEF, 3=MID, 4=FWD
                                     
                                     return (
-                                        <div className="grid grid-cols-2 gap-1.5">
-                                            {/* Expected Points - Left */}
-                                            <div className="bg-gradient-to-br from-cyan-100 to-cyan-50 rounded-lg p-1 text-center border-2 border-cyan-500 shadow-sm flex flex-col justify-center items-center" style={{ height: '52px' }}>
-                                                <p className="text-[7px] text-gray-800 font-bold uppercase leading-tight mb-1">EXPECTED</p>
-                                                <p className="text-sm font-black text-cyan-700 leading-none">{historicalXPoints.toFixed(1)}</p>
+                                        <div className="space-y-1.5">
+                                            {/* Expected vs Actual Points Row */}
+                                            <div className="grid grid-cols-2 gap-1.5">
+                                                {/* Expected Points - Left */}
+                                                <div className="bg-gradient-to-br from-cyan-100 to-cyan-50 rounded-lg p-1 sm:p-1.5 md:p-2 text-center border-2 border-cyan-500 shadow-sm flex flex-col justify-center items-center" style={{ minHeight: '36px', height: 'auto' }}>
+                                                    <p className="text-[7px] sm:text-[8px] md:text-[9px] text-gray-800 font-bold uppercase leading-tight mb-0.5">EXPECTED</p>
+                                                    <p className="text-xs sm:text-sm md:text-base font-black text-cyan-700 leading-none">{historicalXPoints.toFixed(1)}</p>
+                                                </div>
+                                                
+                                                {/* Actual Points - Right */}
+                                                <div className={`rounded-lg p-1 sm:p-1.5 md:p-2 text-center border-2 shadow-lg flex flex-col justify-center items-center ${
+                                                    historicalActualPoints !== null 
+                                                        ? difference !== null && difference > 0
+                                                            ? 'bg-gradient-to-br from-green-500 to-green-600 border-green-700'
+                                                            : difference !== null && difference < 0
+                                                            ? 'bg-gradient-to-br from-red-500 to-red-600 border-red-700'
+                                                            : 'bg-gradient-to-br from-blue-500 to-blue-600 border-blue-700'
+                                                        : 'bg-gradient-to-br from-gray-400 to-gray-500 border-gray-600'
+                                                }`} style={{ minHeight: '36px', height: 'auto' }}>
+                                                    <p className="text-[7px] sm:text-[8px] md:text-[9px] text-white font-bold uppercase leading-tight opacity-90 mb-0.5">ACTUAL</p>
+                                                    <p className="text-sm sm:text-base md:text-lg font-black leading-none text-white">
+                                                        {historicalActualPoints !== null ? historicalActualPoints : '-'}
+                                                    </p>
+                                                </div>
                                             </div>
                                             
-                                            {/* Actual Points - Right */}
-                                            <div className={`rounded-lg p-1 text-center border-2 shadow-lg flex flex-col justify-center items-center ${
-                                                historicalActualPoints !== null 
-                                                    ? difference !== null && difference > 0
-                                                        ? 'bg-gradient-to-br from-green-500 to-green-600 border-green-700'
-                                                        : difference !== null && difference < 0
-                                                        ? 'bg-gradient-to-br from-red-500 to-red-600 border-red-700'
-                                                        : 'bg-gradient-to-br from-blue-500 to-blue-600 border-blue-700'
-                                                    : 'bg-gradient-to-br from-gray-400 to-gray-500 border-gray-600'
-                                            }`} style={{ height: '52px' }}>
-                                                <p className="text-[7px] text-white font-bold uppercase leading-tight opacity-90 mb-1">ACTUAL</p>
-                                                <p className="text-lg font-black leading-none text-white">
-                                                    {historicalActualPoints !== null ? historicalActualPoints : '-'}
-                                                </p>
-                                            </div>
+                                            {/* Gameweek Stats Grid - Position-specific stats */}
+                                            {gwStats && (
+                                                <div className="grid grid-cols-3 gap-0 sm:gap-1">
+                                                    {/* Goals (for MID/FWD) or Saves (for GKP) or Clean Sheets (for DEF) */}
+                                                    {positionType === 1 ? (
+                                                        <div className="bg-gradient-to-br from-blue-100 to-blue-50 rounded-md p-0.5 sm:p-1 text-center border border-blue-400">
+                                                            <p className="text-[6px] sm:text-[7px] md:text-[8px] text-gray-700 font-bold uppercase leading-tight">SAVES</p>
+                                                            <p className="text-[9px] sm:text-[10px] md:text-xs font-black text-blue-700 leading-none">{gwStats.saves || 0}</p>
+                                                        </div>
+                                                    ) : positionType === 2 ? (
+                                                        <div className="bg-gradient-to-br from-green-100 to-green-50 rounded-md p-0.5 sm:p-1 text-center border border-green-400">
+                                                            <p className="text-[6px] sm:text-[7px] md:text-[8px] text-gray-700 font-bold uppercase leading-tight">CS</p>
+                                                            <p className="text-[9px] sm:text-[10px] md:text-xs font-black text-green-700 leading-none">{gwStats.cleanSheets || 0}</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="bg-gradient-to-br from-purple-100 to-purple-50 rounded-md p-0.5 sm:p-1 text-center border border-purple-400">
+                                                            <p className="text-[6px] sm:text-[7px] md:text-[8px] text-gray-700 font-bold uppercase leading-tight">GOALS</p>
+                                                            <p className="text-[9px] sm:text-[10px] md:text-xs font-black text-purple-700 leading-none">{gwStats.goals || 0}</p>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* Assists */}
+                                                    <div className="bg-gradient-to-br from-yellow-100 to-yellow-50 rounded-md p-0.5 sm:p-1 text-center border border-yellow-400">
+                                                        <p className="text-[6px] sm:text-[7px] md:text-[8px] text-gray-700 font-bold uppercase leading-tight">ASSISTS</p>
+                                                        <p className="text-[9px] sm:text-[10px] md:text-xs font-black text-yellow-700 leading-none">{gwStats.assists || 0}</p>
+                                                    </div>
+                                                    
+                                                    {/* Bonus Points */}
+                                                    <div className="bg-gradient-to-br from-orange-100 to-orange-50 rounded-md p-0.5 sm:p-1 text-center border border-orange-400">
+                                                        <p className="text-[6px] sm:text-[7px] md:text-[8px] text-gray-700 font-bold uppercase leading-tight">BONUS</p>
+                                                        <p className="text-[9px] sm:text-[10px] md:text-xs font-black text-orange-700 leading-none">{gwStats.bonus || 0}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Minutes & Cards Row (if stats available) */}
+                                            {gwStats && (
+                                                <div className="grid grid-cols-2 gap-1">
+                                                    {/* Minutes */}
+                                                    <div className="bg-gradient-to-br from-gray-100 to-gray-50 rounded-md p-0.5 sm:p-1 text-center border border-gray-300">
+                                                        <p className="text-[6px] sm:text-[7px] md:text-[8px] text-gray-700 font-bold uppercase leading-tight">MINS</p>
+                                                        <p className="text-[9px] sm:text-[10px] md:text-xs font-black text-gray-700 leading-none">{gwStats.minutes || 0}'</p>
+                                                    </div>
+                                                    
+                                                    {/* Cards (Yellow/Red) */}
+                                                    {(gwStats.yellowCards > 0 || gwStats.redCards > 0) ? (
+                                                        <div className={`rounded-md p-0.5 sm:p-1 text-center border ${
+                                                            gwStats.redCards > 0 
+                                                                ? 'bg-gradient-to-br from-red-100 to-red-50 border-red-400'
+                                                                : 'bg-gradient-to-br from-yellow-100 to-yellow-50 border-yellow-400'
+                                                        }`}>
+                                                            <p className="text-[6px] sm:text-[7px] md:text-[8px] text-gray-700 font-bold uppercase leading-tight">CARDS</p>
+                                                            <p className={`text-[9px] sm:text-[10px] md:text-xs font-black leading-none ${
+                                                                gwStats.redCards > 0 ? 'text-red-700' : 'text-yellow-700'
+                                                            }`}>
+                                                                {gwStats.yellowCards > 0 && `${gwStats.yellowCards}Y`}
+                                                                {gwStats.yellowCards > 0 && gwStats.redCards > 0 && ' '}
+                                                                {gwStats.redCards > 0 && `${gwStats.redCards}R`}
+                                                                {gwStats.yellowCards === 0 && gwStats.redCards === 0 && '-'}
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="bg-gradient-to-br from-gray-100 to-gray-50 rounded-md p-0.5 sm:p-1 text-center border border-gray-300">
+                                                            <p className="text-[6px] sm:text-[7px] md:text-[8px] text-gray-700 font-bold uppercase leading-tight">CARDS</p>
+                                                            <p className="text-[9px] sm:text-[10px] md:text-xs font-black text-gray-500 leading-none">-</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })()}
@@ -354,84 +430,95 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                         ) : isSquadView ? (
                             <>
                                 {/* Squad View: Form (Left), GW Points (Center), Expected Points (Right) - All Same Height */}
-                                <div className="grid grid-cols-3 gap-1.5">
+                                <div className="grid grid-cols-3 gap-0 sm:gap-1.5 mb-0.5">
                                     {/* Form - Left */}
-                                    <div className="bg-gradient-to-br from-orange-100 to-orange-50 rounded-lg p-1 text-center border-2 border-orange-500 shadow-sm flex flex-col justify-center items-center" style={{ height: '52px' }}>
-                                        <p className="text-[7px] text-gray-800 font-bold uppercase leading-tight mb-1">FORM</p>
-                                        <p className="text-sm font-black text-orange-700 leading-none">{form.toFixed(1)}</p>
+                                    <div className="bg-gradient-to-br from-orange-100 to-orange-50 rounded-md p-0.5 sm:p-1 md:p-1.5 text-center border-2 border-orange-500 shadow-sm flex flex-col justify-center items-center" style={{ minHeight: '22px', height: 'auto' }}>
+                                        <p className="text-[6px] sm:text-[9px] md:text-[10px] text-gray-700 font-bold uppercase leading-tight mb-0.5">FORM</p>
+                                        <p className="text-[8px] sm:text-sm md:text-base font-black text-orange-700 leading-none">{form.toFixed(1)}</p>
                                     </div>
                                     
-                                    {/* GW Points - Center (Most Prominent) */}
-                                    <div className={`rounded-lg p-1 text-center border-2 shadow-lg flex flex-col justify-center items-center ${
+                                    {/* GW Points - Center (Most Prominent) - Red if lower than expected, Green if equal/higher */}
+                                    <div className={`rounded-md p-0.5 sm:p-1 md:p-1.5 text-center border-2 shadow-lg flex flex-col justify-center items-center ${
                                         gwPoints !== null 
-                                            ? 'bg-gradient-to-br from-green-500 to-green-600 border-green-700' 
+                                            ? (gwPoints < xPoints 
+                                                ? 'bg-gradient-to-br from-red-500 to-red-600 border-red-700' 
+                                                : 'bg-gradient-to-br from-green-500 to-green-600 border-green-700')
                                             : 'bg-gradient-to-br from-gray-400 to-gray-500 border-gray-600'
-                                    }`} style={{ height: '52px' }}>
-                                        <p className="text-[7px] text-white font-bold uppercase leading-tight opacity-90 mb-1">GW</p>
-                                        <p className="text-lg font-black leading-none text-white">
+                                    }`} style={{ minHeight: '22px', height: 'auto' }}>
+                                        <p className="text-[6px] sm:text-[9px] md:text-[10px] text-white font-bold uppercase leading-tight opacity-95 mb-0.5">GW</p>
+                                        <p className="text-[8px] sm:text-base md:text-lg font-black leading-none text-white">
                                             {gwPoints !== null ? gwPoints : '-'}
                                         </p>
                                     </div>
                                     
                                     {/* Expected Points This GW - Right */}
-                                    <div className="bg-gradient-to-br from-cyan-100 to-cyan-50 rounded-lg p-1 text-center border-2 border-cyan-500 shadow-sm flex flex-col justify-center items-center" style={{ height: '52px' }}>
-                                        <p className="text-[7px] text-gray-800 font-bold uppercase leading-tight mb-1">XPTS</p>
-                                        <p className="text-sm font-black text-cyan-700 leading-none">{xPoints.toFixed(1)}</p>
+                                    <div className="bg-gradient-to-br from-cyan-100 to-cyan-50 rounded-md p-0.5 sm:p-1 md:p-1.5 text-center border-2 border-cyan-500 shadow-sm flex flex-col justify-center items-center" style={{ minHeight: '22px', height: 'auto' }}>
+                                        <p className="text-[6px] sm:text-[9px] md:text-[10px] text-gray-700 font-bold uppercase leading-tight mb-0.5">XPTS</p>
+                                        <p className="text-[8px] sm:text-sm md:text-base font-black text-cyan-700 leading-none">{xPoints.toFixed(1)}</p>
+                                    </div>
+                                </div>
+
+                                {/* Next Fixtures - More space allocated */}
+                                <div className="flex-shrink-0 mt-0.5 pb-0.5">
+                                    <p className="text-[7px] sm:text-[10px] md:text-xs text-gray-700 font-bold mb-0.5 text-center">Next 3:</p>
+                                    <div className="w-full overflow-visible min-h-[36px]">
+                                        <FixtureDifficulty
+                                            teamId={team?.id || player.team}
+                                            fixtures={fixtures}
+                                            teams={teams}
+                                            currentEvent={currentEvent}
+                                            compact={true}
+                                        />
                                     </div>
                                 </div>
                             </>
                         ) : (
                             <>
                                 {/* Default View: Form (Left), GW Points (Center), Expected Points (Right) */}
-                                <div className="grid grid-cols-3 gap-1 mb-1.5">
+                                <div className="grid grid-cols-3 gap-0 sm:gap-1 mb-0.5">
                                     {/* Form - Left */}
-                                    <div className="bg-gradient-to-br from-orange-100 to-orange-50 rounded-lg p-1 text-center border-2 border-orange-500 shadow-sm">
-                                        <p className="text-[7px] text-gray-800 font-bold uppercase leading-tight">Form</p>
-                                        <p className="text-sm font-black text-orange-700 leading-tight">{form.toFixed(1)}</p>
+                                    <div className="bg-gradient-to-br from-orange-100 to-orange-50 rounded-lg p-0.5 md:p-1 text-center border-2 border-orange-500 shadow-sm">
+                                        <p className="text-[6px] md:text-[9px] text-gray-800 font-bold uppercase leading-tight">Form</p>
+                                        <p className="text-[8px] md:text-sm font-black text-orange-700 leading-tight">{form.toFixed(1)}</p>
                                     </div>
                                     
-                                    {/* GW Points - Center (Most Prominent) */}
-                                    <div className={`rounded-lg p-1 text-center border-2 shadow-lg ${
+                                    {/* GW Points - Center (Most Prominent) - Red if lower than expected, Green if equal/higher */}
+                                    <div className={`rounded-lg p-0.5 md:p-1 text-center border-2 shadow-lg ${
                                         gwPoints !== null 
-                                            ? 'bg-gradient-to-br from-green-500 to-green-600 border-green-700' 
+                                            ? (gwPoints < xPoints 
+                                                ? 'bg-gradient-to-br from-red-500 to-red-600 border-red-700' 
+                                                : 'bg-gradient-to-br from-green-500 to-green-600 border-green-700')
                                             : 'bg-gradient-to-br from-gray-400 to-gray-500 border-gray-600'
                                     }`}>
-                                        <p className="text-[7px] text-white font-bold uppercase leading-tight opacity-90">GW PTS</p>
-                                        <p className="text-lg font-black leading-tight text-white">
+                                        <p className="text-[6px] md:text-[9px] text-white font-bold uppercase leading-tight opacity-90">GW PTS</p>
+                                        <p className="text-[8px] md:text-base font-black leading-tight text-white">
                                             {gwPoints !== null ? gwPoints : '-'}
                                         </p>
                                     </div>
                                     
                                     {/* Expected Points This GW - Right */}
-                                    <div className="bg-gradient-to-br from-cyan-100 to-cyan-50 rounded-lg p-1 text-center border-2 border-cyan-500 shadow-sm">
-                                        <p className="text-[7px] text-gray-800 font-bold uppercase leading-tight">xPts</p>
-                                        <p className="text-sm font-black text-cyan-700 leading-tight">{xPoints.toFixed(1)}</p>
+                                    <div className="bg-gradient-to-br from-cyan-100 to-cyan-50 rounded-lg p-0.5 md:p-1 text-center border-2 border-cyan-500 shadow-sm">
+                                        <p className="text-[6px] md:text-[9px] text-gray-800 font-bold uppercase leading-tight">xPts</p>
+                                        <p className="text-[8px] md:text-sm font-black text-cyan-700 leading-tight">{xPoints.toFixed(1)}</p>
                                     </div>
                                 </div>
 
-                                {/* Next Fixtures */}
-                                <div className="flex-shrink-0">
-                                    <p className="text-[7px] text-gray-700 font-bold mb-1">Next 3:</p>
-                                    <FixtureDifficulty
-                                        teamId={team?.id || player.team}
-                                        fixtures={fixtures}
-                                        teams={teams}
-                                        currentEvent={currentEvent}
-                                    />
+                                {/* Next Fixtures - More space allocated */}
+                                <div className="flex-shrink-0 mt-0.5 pb-0.5">
+                                    <p className="text-[7px] sm:text-[10px] md:text-xs text-gray-700 font-bold mb-0.5 text-center">Next 3:</p>
+                                    <div className="w-full overflow-visible min-h-[36px]">
+                                        <FixtureDifficulty
+                                            teamId={team?.id || player.team}
+                                            fixtures={fixtures}
+                                            teams={teams}
+                                            currentEvent={currentEvent}
+                                            compact={true}
+                                        />
+                                    </div>
                                 </div>
                             </>
                         )}
                     </div>
-
-                    {/* Bottom Bar - Only show if not squad view or history view */}
-                    {!isSquadView && !isHistoryView && (
-                        <div className={`bg-gradient-to-r ${colors.primary} px-1.5 py-0.5 flex items-center justify-between ${colors.text} rounded-b-xl flex-shrink-0`}>
-                            <span className="text-[7px] opacity-90 font-semibold">#{player.id}</span>
-                            <span className="text-[7px] font-bold flex items-center gap-0.5 group-hover:gap-1 transition-all">
-                                Details <ArrowRight className="w-2 h-2" />
-                            </span>
-                        </div>
-                    )}
                 </div>
             </div>
         </button>
@@ -451,7 +538,8 @@ export function InsightsPitchView({
     isSquadView = false,
     isHistoryView = false,
     getHistoricalExpectedPoints,
-    getHistoricalActualPoints
+    getHistoricalActualPoints,
+    getHistoricalGWStats
 }: InsightsPitchViewProps) {
     // Group players by position
     const goalkeepers = players.filter((p: any) => p.element_type === 1);
@@ -464,11 +552,11 @@ export function InsightsPitchView({
     // Compact layout for bench/substitutes (no pitch background)
     if (compactLayout) {
         return (
-            <div className="flex justify-center gap-4 flex-wrap">
+            <div className="flex justify-center gap-1 sm:gap-3 md:gap-4 flex-wrap items-start">
                 {players.map((player: any, idx: number) => {
                     const team = getTeam(player.team);
                     return (
-                        <div key={player.id} className="w-32">
+                        <div key={player.id} className="flex-shrink-0 w-[70px] sm:w-[140px] md:w-[150px] lg:w-[160px]">
                             <PitchPlayerCard
                                 player={player}
                                 team={team}
@@ -484,6 +572,7 @@ export function InsightsPitchView({
                                 isHistoryView={isHistoryView}
                                 getHistoricalExpectedPoints={getHistoricalExpectedPoints}
                                 getHistoricalActualPoints={getHistoricalActualPoints}
+                                getHistoricalGWStats={getHistoricalGWStats}
                             />
                         </div>
                     );
@@ -493,9 +582,9 @@ export function InsightsPitchView({
     }
 
     return (
-        <div className="relative overflow-hidden rounded-3xl border-2 border-orange-500/30 shadow-2xl">
+        <div className="relative overflow-x-auto overflow-y-hidden rounded-2xl md:rounded-3xl border-2 border-orange-500/30 shadow-2xl w-full">
             {/* Realistic Pitch Background */}
-            <div className="relative min-h-[800px] bg-gradient-to-b from-green-600 via-green-700 to-green-800">
+            <div className="relative min-h-[520px] sm:min-h-[700px] md:min-h-[800px] lg:min-h-[900px] bg-gradient-to-b from-green-600 via-green-700 to-green-800">
                 {/* Detailed Grass Stripes Pattern */}
                 <div className="absolute inset-0" style={{
                     backgroundImage: `
@@ -519,49 +608,49 @@ export function InsightsPitchView({
                 {/* Pitch Markings */}
                 <div className="absolute inset-0">
                     {/* Outer Boundary */}
-                    <div className="absolute inset-8 border-4 border-white/40 rounded-lg" />
+                    <div className="absolute inset-4 md:inset-8 border-2 md:border-4 border-white/40 rounded-lg" />
 
                     {/* Halfway Line */}
-                    <div className="absolute top-0 bottom-0 left-1/2 w-1 bg-white/40" />
+                    <div className="absolute top-0 bottom-0 left-1/2 w-0.5 md:w-1 bg-white/40" />
 
                     {/* Center Circle */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-4 border-white/40 rounded-full" />
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-white/50 rounded-full shadow-lg" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-64 md:h-64 border-2 md:border-4 border-white/40 rounded-full" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 md:w-4 md:h-4 bg-white/50 rounded-full shadow-lg" />
 
                     {/* Top Penalty Area */}
-                    <div className="absolute top-8 left-1/2 -translate-x-1/2 w-96 h-36 border-4 border-white/40 border-t-0 rounded-b-sm" />
+                    <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 w-48 md:w-96 h-18 md:h-36 border-2 md:border-4 border-white/40 border-t-0 rounded-b-sm" />
                     {/* Top Goal Area */}
-                    <div className="absolute top-8 left-1/2 -translate-x-1/2 w-48 h-20 border-4 border-white/40 border-t-0 rounded-b-sm" />
+                    <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 w-24 md:w-48 h-10 md:h-20 border-2 md:border-4 border-white/40 border-t-0 rounded-b-sm" />
                     {/* Top Penalty Spot */}
-                    <div className="absolute top-32 left-1/2 -translate-x-1/2 w-2 h-2 bg-white/50 rounded-full" />
+                    <div className="absolute top-16 md:top-32 left-1/2 -translate-x-1/2 w-1.5 h-1.5 md:w-2 md:h-2 bg-white/50 rounded-full" />
                     {/* Top Penalty Arc */}
-                    <div className="absolute top-36 left-1/2 -translate-x-1/2 w-56 h-28 border-4 border-white/40 border-b-0 border-l-0 border-r-0 rounded-t-full" />
+                    <div className="absolute top-18 md:top-36 left-1/2 -translate-x-1/2 w-28 md:w-56 h-14 md:h-28 border-2 md:border-4 border-white/40 border-b-0 border-l-0 border-r-0 rounded-t-full" />
 
                     {/* Bottom Penalty Area */}
-                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-96 h-36 border-4 border-white/40 border-b-0 rounded-t-sm" />
+                    <div className="absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 w-48 md:w-96 h-18 md:h-36 border-2 md:border-4 border-white/40 border-b-0 rounded-t-sm" />
                     {/* Bottom Goal Area */}
-                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-48 h-20 border-4 border-white/40 border-b-0 rounded-t-sm" />
+                    <div className="absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 w-24 md:w-48 h-10 md:h-20 border-2 md:border-4 border-white/40 border-b-0 rounded-t-sm" />
                     {/* Bottom Penalty Spot */}
-                    <div className="absolute bottom-32 left-1/2 -translate-x-1/2 w-2 h-2 bg-white/50 rounded-full" />
+                    <div className="absolute bottom-16 md:bottom-32 left-1/2 -translate-x-1/2 w-1.5 h-1.5 md:w-2 md:h-2 bg-white/50 rounded-full" />
                     {/* Bottom Penalty Arc */}
-                    <div className="absolute bottom-36 left-1/2 -translate-x-1/2 w-56 h-28 border-4 border-white/40 border-t-0 border-l-0 border-r-0 rounded-b-full" />
+                    <div className="absolute bottom-18 md:bottom-36 left-1/2 -translate-x-1/2 w-28 md:w-56 h-14 md:h-28 border-2 md:border-4 border-white/40 border-t-0 border-l-0 border-r-0 rounded-b-full" />
 
                     {/* Corner Arcs */}
-                    <div className="absolute top-8 left-8 w-8 h-8 border-4 border-white/40 border-t-0 border-l-0 rounded-br-full" />
-                    <div className="absolute top-8 right-8 w-8 h-8 border-4 border-white/40 border-t-0 border-r-0 rounded-bl-full" />
-                    <div className="absolute bottom-8 left-8 w-8 h-8 border-4 border-white/40 border-b-0 border-l-0 rounded-tr-full" />
-                    <div className="absolute bottom-8 right-8 w-8 h-8 border-4 border-white/40 border-b-0 border-r-0 rounded-tl-full" />
+                    <div className="absolute top-4 md:top-8 left-4 md:left-8 w-4 h-4 md:w-8 md:h-8 border-2 md:border-4 border-white/40 border-t-0 border-l-0 rounded-br-full" />
+                    <div className="absolute top-4 md:top-8 right-4 md:right-8 w-4 h-4 md:w-8 md:h-8 border-2 md:border-4 border-white/40 border-t-0 border-r-0 rounded-bl-full" />
+                    <div className="absolute bottom-4 md:bottom-8 left-4 md:left-8 w-4 h-4 md:w-8 md:h-8 border-2 md:border-4 border-white/40 border-b-0 border-l-0 rounded-tr-full" />
+                    <div className="absolute bottom-4 md:bottom-8 right-4 md:right-8 w-4 h-4 md:w-8 md:h-8 border-2 md:border-4 border-white/40 border-b-0 border-r-0 rounded-tl-full" />
                 </div>
 
                 {/* 3D Depth Shadow Effect */}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30 pointer-events-none" />
 
                 {/* Players in Formation */}
-                <div className="relative z-10 py-12 px-4 space-y-8">
+                <div className="relative z-10 py-3 sm:py-10 md:py-12 px-0 sm:px-4 md:px-6 space-y-2.5 sm:space-y-6 md:space-y-8">
                     {/* Line 1: Goalkeeper */}
                     {goalkeepers.length > 0 && (
                         <div className="flex justify-center">
-                            <div className="w-32">
+                            <div className="w-[48px] sm:w-[140px] md:w-[150px] lg:w-[160px] mx-auto">
                                 {goalkeepers.slice(0, 1).map((player: any, idx: number) => {
                                     const team = getTeam(player.team);
                                     return (
@@ -581,6 +670,7 @@ export function InsightsPitchView({
                                             isHistoryView={isHistoryView}
                                             getHistoricalExpectedPoints={getHistoricalExpectedPoints}
                                             getHistoricalActualPoints={getHistoricalActualPoints}
+                                            getHistoricalGWStats={getHistoricalGWStats}
                                         />
                                     );
                                 })}
@@ -590,11 +680,11 @@ export function InsightsPitchView({
 
                     {/* Line 2: Defenders */}
                     {defenders.length > 0 && (
-                        <div className="flex justify-center gap-2 flex-wrap max-w-5xl mx-auto">
+                        <div className="flex justify-center items-start gap-0 sm:gap-2 md:gap-3 max-w-5xl mx-auto w-full px-0.5 sm:px-0">
                             {defenders.slice(0, 5).map((player: any, idx: number) => {
                                 const team = getTeam(player.team);
                                 return (
-                                    <div key={player.id} className="w-32">
+                                    <div key={player.id} className="flex-shrink-0 w-[48px] sm:w-[140px] md:w-[150px] lg:w-[160px]">
                                         <PitchPlayerCard
                                             player={player}
                                             team={team}
@@ -610,6 +700,7 @@ export function InsightsPitchView({
                                             isHistoryView={isHistoryView}
                                             getHistoricalExpectedPoints={getHistoricalExpectedPoints}
                                             getHistoricalActualPoints={getHistoricalActualPoints}
+                                            getHistoricalGWStats={getHistoricalGWStats}
                                         />
                                     </div>
                                 );
@@ -619,11 +710,11 @@ export function InsightsPitchView({
 
                     {/* Line 3: Midfielders */}
                     {midfielders.length > 0 && (
-                        <div className="flex justify-center gap-2 flex-wrap max-w-5xl mx-auto">
+                        <div className="flex justify-center items-start gap-0 sm:gap-2 md:gap-3 max-w-5xl mx-auto w-full px-0.5 sm:px-0">
                             {midfielders.slice(0, 5).map((player: any, idx: number) => {
                                 const team = getTeam(player.team);
                                 return (
-                                    <div key={player.id} className="w-32">
+                                    <div key={player.id} className="flex-shrink-0 w-[48px] sm:w-[140px] md:w-[150px] lg:w-[160px]">
                                         <PitchPlayerCard
                                             player={player}
                                             team={team}
@@ -639,6 +730,7 @@ export function InsightsPitchView({
                                             isHistoryView={isHistoryView}
                                             getHistoricalExpectedPoints={getHistoricalExpectedPoints}
                                             getHistoricalActualPoints={getHistoricalActualPoints}
+                                            getHistoricalGWStats={getHistoricalGWStats}
                                         />
                                     </div>
                                 );
@@ -648,11 +740,11 @@ export function InsightsPitchView({
 
                     {/* Line 4: Forwards */}
                     {forwards.length > 0 && (
-                        <div className="flex justify-center gap-2 flex-wrap max-w-4xl mx-auto">
+                        <div className="flex justify-center items-start gap-1 sm:gap-2 md:gap-3 max-w-4xl mx-auto w-full px-0.5 sm:px-0">
                             {forwards.slice(0, 3).map((player: any, idx: number) => {
                                 const team = getTeam(player.team);
                                 return (
-                                    <div key={player.id} className="w-32">
+                                    <div key={player.id} className="flex-shrink-0 w-[48px] sm:w-[140px] md:w-[150px] lg:w-[160px]">
                                         <PitchPlayerCard
                                             player={player}
                                             team={team}
@@ -668,6 +760,7 @@ export function InsightsPitchView({
                                             isHistoryView={isHistoryView}
                                             getHistoricalExpectedPoints={getHistoricalExpectedPoints}
                                             getHistoricalActualPoints={getHistoricalActualPoints}
+                                            getHistoricalGWStats={getHistoricalGWStats}
                                         />
                                     </div>
                                 );

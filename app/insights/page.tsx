@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { redirect, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,9 +21,6 @@ import {
     Trophy,
     X,
     ArrowRight,
-    Home,
-    History,
-    Lightbulb,
     LineChart,
     Percent,
     Globe,
@@ -48,8 +45,6 @@ function getPlayerPhotoUrl(player: any): string[] {
     ];
 }
 
-import { BottomNav } from "@/components/bottom-nav";
-
 export default function InsightsPage() {
     const router = useRouter();
     const [sessionData, setSessionData] = useState<{ entryId: number } | null>(null);
@@ -60,12 +55,54 @@ export default function InsightsPage() {
     const [battleMode, setBattleMode] = useState<boolean>(false);
     const [alternateTeam, setAlternateTeam] = useState<any[]>([]);
 
+    // Retry helper with exponential backoff
+    const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries = 3): Promise<Response> => {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const res = await fetch(url, options);
+                if (res.ok || i === maxRetries - 1) {
+                    return res;
+                }
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+            } catch (error) {
+                if (i === maxRetries - 1) throw error;
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+            }
+        }
+        throw new Error('Max retries exceeded');
+    };
+
     useEffect(() => {
-        fetch('/api/session/create')
-            .then(res => res.ok ? res.json() : Promise.reject())
-            .then(data => setSessionData(data))
-            .catch(() => redirect('/login'));
-    }, []);
+        let mounted = true;
+
+        const loadSession = async () => {
+            try {
+                const res = await fetchWithRetry('/api/session/create');
+                if (!res.ok) {
+                    if (res.status === 404) {
+                        router.push('/login');
+                        return;
+                    }
+                    throw new Error(`Session error: ${res.status}`);
+                }
+                const data = await res.json();
+                if (mounted) {
+                    setSessionData(data);
+                }
+            } catch (err) {
+                console.error('[InsightsPage] Error loading session:', err);
+                if (mounted && err instanceof Error && err.message.includes('Session')) {
+                    setTimeout(() => router.push('/login'), 2000);
+                }
+            }
+        };
+
+        loadSession();
+
+        return () => {
+            mounted = false;
+        };
+    }, [router]);
 
     const { bootstrap, history, fixtures, isLoading: baseLoading } = useFPLData(sessionData?.entryId);
 
@@ -104,12 +141,55 @@ export default function InsightsPage() {
             .filter((p: any) => parseFloat(p.selected_by_percent) < 10 && parseFloat(p.form) > 4)
             .sort((a: any, b: any) => parseFloat(b.form) - parseFloat(a.form));
         
-        const gk = differentials.filter((p: any) => p.element_type === 1).slice(0, 1);
-        const def = differentials.filter((p: any) => p.element_type === 2).slice(0, 5);
-        const mid = differentials.filter((p: any) => p.element_type === 3).slice(0, 5);
-        const fwd = differentials.filter((p: any) => p.element_type === 4).slice(0, 3);
+        // Select with team diversity
+        const selected: any[] = [];
+        const usedTeams = new Set<number>();
         
-        return [...gk, ...def, ...mid, ...fwd];
+        // Goalkeeper (1)
+        const gks = differentials.filter((p: any) => p.element_type === 1);
+        if (gks.length > 0) {
+            const bestGK = gks[0];
+            selected.push(bestGK);
+            usedTeams.add(bestGK.team);
+        }
+        
+        // Defenders (5) - prioritize different teams
+        const defs = differentials.filter((p: any) => p.element_type === 2);
+        let defCount = 0;
+        for (const def of defs) {
+            if (defCount >= 5) break;
+            if (defCount < 3 || !usedTeams.has(def.team)) {
+                selected.push(def);
+                usedTeams.add(def.team);
+                defCount++;
+            }
+        }
+        
+        // Midfielders (5) - prioritize different teams
+        const mids = differentials.filter((p: any) => p.element_type === 3);
+        let midCount = 0;
+        for (const mid of mids) {
+            if (midCount >= 5) break;
+            if (midCount < 3 || !usedTeams.has(mid.team)) {
+                selected.push(mid);
+                usedTeams.add(mid.team);
+                midCount++;
+            }
+        }
+        
+        // Forwards (3) - prioritize different teams
+        const fwds = differentials.filter((p: any) => p.element_type === 4);
+        let fwdCount = 0;
+        for (const fwd of fwds) {
+            if (fwdCount >= 3) break;
+            if (fwdCount < 2 || !usedTeams.has(fwd.team)) {
+                selected.push(fwd);
+                usedTeams.add(fwd.team);
+                fwdCount++;
+            }
+        }
+        
+        return selected;
     }, [elements]);
 
     // Memoized multi-source players (must be before early return)
@@ -132,12 +212,55 @@ export default function InsightsPage() {
             }
         });
         
-        const gk = combined.filter((p: any) => p.element_type === 1).slice(0, 1);
-        const def = combined.filter((p: any) => p.element_type === 2).slice(0, 5);
-        const mid = combined.filter((p: any) => p.element_type === 3).slice(0, 5);
-        const fwd = combined.filter((p: any) => p.element_type === 4).slice(0, 3);
+        // Select with team diversity
+        const selected: any[] = [];
+        const usedTeams = new Set<number>();
         
-        return [...gk, ...def, ...mid, ...fwd];
+        // Goalkeeper (1)
+        const gks = combined.filter((p: any) => p.element_type === 1);
+        if (gks.length > 0) {
+            const bestGK = gks[0];
+            selected.push(bestGK);
+            usedTeams.add(bestGK.team);
+        }
+        
+        // Defenders (5) - prioritize different teams
+        const defs = combined.filter((p: any) => p.element_type === 2);
+        let defCount = 0;
+        for (const def of defs) {
+            if (defCount >= 5) break;
+            if (defCount < 3 || !usedTeams.has(def.team)) {
+                selected.push(def);
+                usedTeams.add(def.team);
+                defCount++;
+            }
+        }
+        
+        // Midfielders (5) - prioritize different teams
+        const mids = combined.filter((p: any) => p.element_type === 3);
+        let midCount = 0;
+        for (const mid of mids) {
+            if (midCount >= 5) break;
+            if (midCount < 3 || !usedTeams.has(mid.team)) {
+                selected.push(mid);
+                usedTeams.add(mid.team);
+                midCount++;
+            }
+        }
+        
+        // Forwards (3) - prioritize different teams
+        const fwds = combined.filter((p: any) => p.element_type === 4);
+        let fwdCount = 0;
+        for (const fwd of fwds) {
+            if (fwdCount >= 3) break;
+            if (fwdCount < 2 || !usedTeams.has(fwd.team)) {
+                selected.push(fwd);
+                usedTeams.add(fwd.team);
+                fwdCount++;
+            }
+        }
+        
+        return selected;
     }, [elements]);
 
     // Get top 15 players overall (sorted by form + expected points + total points) - must be before early return
@@ -321,7 +444,7 @@ export default function InsightsPage() {
                 onClick={() => setSelectedPlayer({ ...player, position, rank })}
                 className="relative group bg-gradient-to-br from-card to-card/50 rounded-xl p-4 border border-primary/20 hover:border-primary/40 transition-all hover:scale-105 text-left w-full"
             >
-                <div className="absolute top-2 right-2">
+                <div className="absolute top-2 left-2 z-10">
                     <Badge variant="outline" className="bg-primary/10">
                         #{rank}
                     </Badge>
@@ -381,20 +504,20 @@ export default function InsightsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background pb-32">
-            <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+        <div className="min-h-screen bg-background pb-32 pt-16">
+            <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-5 md:space-y-6">
                 {/* Hero Section - Match Dashboard Style */}
-                <div className="relative overflow-hidden rounded-3xl bg-card border border-border p-8">
+                <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card border border-border p-4 md:p-8">
                     <div className="relative z-10">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
-                                <Brain className="w-6 h-6 text-primary" />
+                        <div className="flex items-center gap-2 md:gap-3">
+                            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
+                                <Brain className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                             </div>
                             <div>
-                                <h1 className="text-3xl md:text-4xl font-bold text-foreground">
+                                <h1 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-foreground">
                                     AI Insights
                                 </h1>
-                                <p className="text-muted-foreground">Smart recommendations from multiple sources</p>
+                                <p className="text-xs md:text-sm text-muted-foreground">Smart recommendations from multiple sources</p>
                             </div>
                         </div>
                     </div>
@@ -402,29 +525,29 @@ export default function InsightsPage() {
 
                 {/* Tabs */}
                 <Tabs defaultValue="squad" className="w-full">
-                    <TabsList className="grid w-full grid-cols-5 h-auto bg-card/50 backdrop-blur-sm p-1 gap-1">
-                        <TabsTrigger value="squad" className="flex items-center gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                            <Brain className="w-4 h-4" />
+                    <TabsList className="grid w-full grid-cols-5 h-auto bg-card/50 backdrop-blur-sm p-0.5 md:p-1 gap-0.5 md:gap-1">
+                        <TabsTrigger value="squad" className="flex items-center gap-1 md:gap-2 py-2 md:py-3 text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            <Brain className="w-3 h-3 md:w-4 md:h-4" />
                             <span className="hidden sm:inline">Squad Builder</span>
                             <span className="sm:hidden">Squad</span>
                         </TabsTrigger>
-                        <TabsTrigger value="upgrades" className="flex items-center gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                            <LineChart className="w-4 h-4" />
+                        <TabsTrigger value="upgrades" className="flex items-center gap-1 md:gap-2 py-2 md:py-3 text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            <LineChart className="w-3 h-3 md:w-4 md:h-4" />
                             <span className="hidden sm:inline">GW Upgrades</span>
                             <span className="sm:hidden">Upgrades</span>
                         </TabsTrigger>
-                        <TabsTrigger value="differentials" className="flex items-center gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                            <Percent className="w-4 h-4" />
+                        <TabsTrigger value="differentials" className="flex items-center gap-1 md:gap-2 py-2 md:py-3 text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            <Percent className="w-3 h-3 md:w-4 md:h-4" />
                             <span className="hidden sm:inline">Differentials</span>
                             <span className="sm:hidden">Diff</span>
                         </TabsTrigger>
-                        <TabsTrigger value="multi" className="flex items-center gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                            <Globe className="w-4 h-4" />
+                        <TabsTrigger value="multi" className="flex items-center gap-1 md:gap-2 py-2 md:py-3 text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            <Globe className="w-3 h-3 md:w-4 md:h-4" />
                             <span className="hidden sm:inline">Multi-Source</span>
                             <span className="sm:hidden">Multi</span>
                         </TabsTrigger>
-                        <TabsTrigger value="playground" className="flex items-center gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                            <Gamepad2 className="w-4 h-4" />
+                        <TabsTrigger value="playground" className="flex items-center gap-1 md:gap-2 py-2 md:py-3 text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            <Gamepad2 className="w-3 h-3 md:w-4 md:h-4" />
                             <span className="hidden sm:inline">Team Playground</span>
                             <span className="sm:hidden">Play</span>
                         </TabsTrigger>
@@ -548,11 +671,11 @@ export default function InsightsPage() {
                                                                                                 upgradeSource === 'bonus' ? 'Bonus Points' :
                                                                                                     upgradeSource === 'clean_sheets' ? 'Clean Sheets' :
                                                                                                         'Saves Made (Goalkeepers)'
-                                            } • Each player gets alternating suggestions
+                                            } · Each player gets alternating suggestions
                                         </p>
 
                                         {/* Display upgrade recommendations with split cards */}
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                                             {(() => {
                                                 const myTeamPlayerIds = new Set<number>(myTeamPicks.map((p: any) => p.element as number));
                                                 const usedUpgradeIds = new Set<number>();
@@ -606,7 +729,79 @@ export default function InsightsPage() {
                                     </h3>
                                     <p className="text-sm text-muted-foreground mb-4">Top performers from all teams - click to view details</p>
                                     <InsightsPitchView
-                                        players={elements.filter((p: any) => !myTeamPicks.some((pick: any) => pick.element === p.id))}
+                                        players={(() => {
+                                            // Get available players (not in user's team)
+                                            const availablePlayers = elements.filter((p: any) => !myTeamPicks.some((pick: any) => pick.element === p.id));
+                                            
+                                            // Select top players by position with team diversity
+                                            // Sort by a combination of form, total points, and expected points
+                                            const getPlayerScore = (p: any) => {
+                                                const form = parseFloat(p.form) || 0;
+                                                const totalPoints = p.total_points || 0;
+                                                const expectedPoints = parseFloat(p.ep_next) || 0;
+                                                return (form * 2) + (totalPoints * 0.1) + (expectedPoints * 1.5);
+                                            };
+                                            
+                                            // Get top players by position, ensuring team diversity
+                                            const selectedPlayers: any[] = [];
+                                            const usedTeams = new Set<number>();
+                                            
+                                            // Goalkeeper (1)
+                                            const gks = availablePlayers
+                                                .filter((p: any) => p.element_type === 1)
+                                                .sort((a: any, b: any) => getPlayerScore(b) - getPlayerScore(a));
+                                            if (gks.length > 0) {
+                                                // Prefer players from different teams
+                                                const bestGK = gks.find((p: any) => !usedTeams.has(p.team)) || gks[0];
+                                                selectedPlayers.push(bestGK);
+                                                usedTeams.add(bestGK.team);
+                                            }
+                                            
+                                            // Defenders (5) - prioritize different teams
+                                            const defs = availablePlayers
+                                                .filter((p: any) => p.element_type === 2)
+                                                .sort((a: any, b: any) => getPlayerScore(b) - getPlayerScore(a));
+                                            let defCount = 0;
+                                            for (const def of defs) {
+                                                if (defCount >= 5) break;
+                                                // Prefer different teams, but allow same team if needed
+                                                if (defCount < 3 || !usedTeams.has(def.team) || usedTeams.size >= 15) {
+                                                    selectedPlayers.push(def);
+                                                    usedTeams.add(def.team);
+                                                    defCount++;
+                                                }
+                                            }
+                                            
+                                            // Midfielders (5) - prioritize different teams
+                                            const mids = availablePlayers
+                                                .filter((p: any) => p.element_type === 3)
+                                                .sort((a: any, b: any) => getPlayerScore(b) - getPlayerScore(a));
+                                            let midCount = 0;
+                                            for (const mid of mids) {
+                                                if (midCount >= 5) break;
+                                                if (midCount < 3 || !usedTeams.has(mid.team) || usedTeams.size >= 15) {
+                                                    selectedPlayers.push(mid);
+                                                    usedTeams.add(mid.team);
+                                                    midCount++;
+                                                }
+                                            }
+                                            
+                                            // Forwards (3) - prioritize different teams
+                                            const fwds = availablePlayers
+                                                .filter((p: any) => p.element_type === 4)
+                                                .sort((a: any, b: any) => getPlayerScore(b) - getPlayerScore(a));
+                                            let fwdCount = 0;
+                                            for (const fwd of fwds) {
+                                                if (fwdCount >= 3) break;
+                                                if (fwdCount < 2 || !usedTeams.has(fwd.team) || usedTeams.size >= 15) {
+                                                    selectedPlayers.push(fwd);
+                                                    usedTeams.add(fwd.team);
+                                                    fwdCount++;
+                                                }
+                                            }
+                                            
+                                            return selectedPlayers;
+                                        })()}
                                         teams={teams || []}
                                         fixtures={fixtures || []}
                                         currentEvent={currentEvent?.id || 1}
@@ -629,7 +824,7 @@ export default function InsightsPage() {
                                             <posGroup.icon className={`w-5 h-5 text-${posGroup.color}-600`} />
                                             {posGroup.name}
                                         </h3>
-                                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                                             {posGroup.data.map((player: any, idx: number) => (
                                                 <div key={player.id} className="bg-card/50 border border-primary/20 rounded-lg p-4">
                                                     <div className="flex items-center gap-3 mb-3">
@@ -722,7 +917,7 @@ export default function InsightsPage() {
                                 </CardTitle>
                                 <p className="text-sm text-muted-foreground">
                                     Drag & drop players to rearrange, click to swap, experiment with formations
-                                    {playgroundGW && ` • GW ${playgroundGW}`}
+                                    {playgroundGW && ` · GW ${playgroundGW}`}
                                 </p>
                             </CardHeader>
                             <CardContent>
@@ -781,7 +976,7 @@ export default function InsightsPage() {
                                                 </Button>
                                                             </div>
                                             <div className="text-sm text-muted-foreground">
-                                                {playgroundTeam.filter((p: any) => p.position <= 11).length} Starting • {playgroundTeam.filter((p: any) => p.position > 11).length} Bench
+                                                {playgroundTeam.filter((p: any) => p.position <= 11).length} Starting · {playgroundTeam.filter((p: any) => p.position > 11).length} Bench
                                                             </div>
                                                         </div>
 
@@ -956,43 +1151,6 @@ export default function InsightsPage() {
                 onClose={() => setSelectedPlayer(null)}
             />
 
-            {/* Fixed Bottom Navigation */}
-            <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-card/95 to-card/98 backdrop-blur-lg border-t border-primary/20 shadow-2xl z-40">
-                <div className="max-w-7xl mx-auto px-4 py-4">
-                    <div className="grid grid-cols-5 gap-3">
-                        <Link href="/dashboard">
-                            <Button variant="outline" className="w-full h-auto py-3 flex-col gap-2 hover:bg-primary/10">
-                                <Home className="w-5 h-5" />
-                                <span className="text-xs">Dashboard</span>
-                            </Button>
-                        </Link>
-                        <Link href="/squad">
-                            <Button variant="outline" className="w-full h-auto py-3 flex-col gap-2 hover:bg-primary/10">
-                                <Users className="w-5 h-5" />
-                                <span className="text-xs">Squad</span>
-                            </Button>
-                        </Link>
-                        <Link href="/history">
-                            <Button variant="outline" className="w-full h-auto py-3 flex-col gap-2 hover:bg-primary/10">
-                                <History className="w-5 h-5" />
-                                <span className="text-xs">History</span>
-                            </Button>
-                        </Link>
-                        <Link href="/insights">
-                            <Button variant="default" className="w-full h-auto py-3 flex-col gap-2 bg-primary">
-                                <Lightbulb className="w-5 h-5" />
-                                <span className="text-xs">Insights</span>
-                            </Button>
-                        </Link>
-                        <Button variant="outline" className="w-full h-auto py-3 flex-col gap-2 hover:bg-primary/10">
-                            <Trophy className="w-5 h-5" />
-                            <span className="text-xs">Leagues</span>
-                        </Button>
-                    </div>
-                </div>
-
-                <BottomNav />
-            </div>
         </div>
     );
 }

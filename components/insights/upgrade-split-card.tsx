@@ -103,7 +103,7 @@ export function UpgradeSplitCard({
 
     return (
         <>
-        <div className="relative group w-full aspect-[5/7]">
+        <div className="relative group w-full aspect-[9/16]">
             <button
                 onClick={() => setShowComparison(true)}
                 className="relative w-full h-full"
@@ -162,7 +162,7 @@ export function UpgradeSplitCard({
                         {/* Name Bar */}
                         <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 text-white px-1 py-0.5 text-center border-y border-white/10 flex-shrink-0">
                             <p className="text-[9px] font-black tracking-wide uppercase truncate drop-shadow-lg leading-tight">{currentPlayer.web_name}</p>
-                            <p className="text-[7px] text-white font-semibold truncate drop-shadow-sm">{currentTeam?.short_name} • {positionName}</p>
+                            <p className="text-[7px] text-white font-semibold truncate drop-shadow-sm">{currentTeam?.short_name} · {positionName}</p>
                         </div>
 
                         {/* Stats */}
@@ -249,7 +249,7 @@ export function UpgradeSplitCard({
                         {/* Name Bar */}
                         <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 text-white px-1 py-0.5 text-center border-y border-white/10 flex-shrink-0">
                             <p className="text-[9px] font-black tracking-wide uppercase truncate drop-shadow-lg leading-tight">{upgradePlayer.web_name}</p>
-                            <p className="text-[7px] text-white font-semibold truncate drop-shadow-sm">{upgradeTeam?.short_name} • {positionName}</p>
+                            <p className="text-[7px] text-white font-semibold truncate drop-shadow-sm">{upgradeTeam?.short_name} · {positionName}</p>
                         </div>
 
                         {/* Stats */}

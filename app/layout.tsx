@@ -39,6 +39,7 @@ export const viewport: Viewport = {
 
 import { Toaster } from "@/components/ui/sonner";
 import { BottomNav } from "@/components/bottom-nav";
+import { AppHeader } from "@/components/app-header";
 import Providers from "@/components/providers";
 
 export default function RootLayout({
@@ -52,6 +53,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <Providers>
+          <AppHeader />
           {children}
           <BottomNav />
           <Toaster />

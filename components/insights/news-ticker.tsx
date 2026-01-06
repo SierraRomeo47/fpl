@@ -242,7 +242,7 @@ export function NewsTicker({ player, team }: NewsTickerProps) {
                                 {currentItem.source && (
                                     <p className="text-xs mt-1 opacity-70">
                                         {currentItem.source}
-                                        {currentItem.publishedAt && ` • ${new Date(currentItem.publishedAt).toLocaleDateString()}`}
+                                        {currentItem.publishedAt && ` · ${new Date(currentItem.publishedAt).toLocaleDateString()}`}
                                     </p>
                                 )}
                             </motion.div>
