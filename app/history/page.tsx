@@ -50,25 +50,34 @@ export default function HistoryPage() {
 
         const loadSession = async () => {
             try {
-                const res = await fetchWithRetry('/api/session/create');
+                // Use /api/session which checks cookie-based session
+                const res = await fetchWithRetry('/api/session');
                 if (!res.ok) {
-                    if (res.status === 404) {
+                    // Only redirect if it's a 401 (unauthorized) - means no valid session
+                    if (res.status === 401) {
                         router.push('/login');
                         return;
                     }
+                    // For other errors, don't redirect - just log and show error
                     throw new Error(`Session error: ${res.status}`);
                 }
                 const data = await res.json();
                 if (mounted) {
-                    setSessionData(data);
+                    // Get full session data from /api/session/create if needed
+                    const createRes = await fetch('/api/session/create');
+                    if (createRes.ok) {
+                        const sessionData = await createRes.json();
+                        setSessionData(sessionData.session || sessionData);
+                    } else {
+                        // Use entryId from /api/session if create fails
+                        setSessionData({ entryId: data.entryId });
+                    }
                 }
             } catch (err) {
                 console.error('[HistoryPage] Error loading session:', err);
                 if (mounted) {
                     setSessionError(err instanceof Error ? err.message : 'Failed to load session');
-                    if (err instanceof Error && err.message.includes('Session')) {
-                        setTimeout(() => router.push('/login'), 2000);
-                    }
+                    // Only redirect on network errors or explicit 401, not on other errors
                 }
             }
         };

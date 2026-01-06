@@ -77,23 +77,34 @@ export default function InsightsPage() {
 
         const loadSession = async () => {
             try {
-                const res = await fetchWithRetry('/api/session/create');
+                // First check if we have a valid session via cookies
+                const res = await fetchWithRetry('/api/session');
                 if (!res.ok) {
-                    if (res.status === 404) {
+                    // Only redirect if it's a 401 (unauthorized) - means no valid session
+                    if (res.status === 401) {
                         router.push('/login');
                         return;
                     }
-                    throw new Error(`Session error: ${res.status}`);
+                    // For other errors, don't redirect - just log
+                    console.warn('[InsightsPage] Session check failed:', res.status);
+                    return;
                 }
-                const data = await res.json();
-                if (mounted) {
-                    setSessionData(data);
+
+                // Get full session data
+                const sessionCheck = await res.json();
+                const createRes = await fetch('/api/session/create');
+                if (createRes.ok) {
+                    const sessionData = await createRes.json();
+                    if (mounted) {
+                        setSessionData(sessionData.session || sessionData);
+                    }
+                } else if (mounted) {
+                    // Fallback to entryId from session check
+                    setSessionData({ entryId: sessionCheck.entryId });
                 }
             } catch (err) {
                 console.error('[InsightsPage] Error loading session:', err);
-                if (mounted && err instanceof Error && err.message.includes('Session')) {
-                    setTimeout(() => router.push('/login'), 2000);
-                }
+                // Don't auto-redirect on errors - let user stay on page
             }
         };
 

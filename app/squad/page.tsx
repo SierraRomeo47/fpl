@@ -48,12 +48,12 @@ export default function SquadPage() {
 
         const loadSession = async () => {
             try {
-                // Retry logic with exponential backoff
+                // First check if we have a valid session via cookies
                 let res: Response | null = null;
                 for (let i = 0; i < 3; i++) {
                     try {
-                        res = await fetch('/api/session/create');
-                        if (res.ok || i === 2) break;
+                        res = await fetch('/api/session');
+                        if (res.ok || res.status === 401 || i === 2) break;
                         await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
                     } catch (error) {
                         if (i === 2) throw error;
@@ -61,23 +61,33 @@ export default function SquadPage() {
                     }
                 }
 
-                if (!res || !res.ok) {
-                    if (res?.status === 404) {
-                        router.push('/login');
-                        return;
-                    }
-                    throw new Error(`Session error: ${res?.status || 'Unknown'}`);
+                if (!res || res.status === 401) {
+                    // Only redirect if truly unauthorized (no session)
+                    router.push('/login');
+                    return;
                 }
 
-                const data = await res.json();
-                if (mounted) {
-                    setSessionData(data);
+                if (!res.ok) {
+                    // For other errors, don't redirect - just log
+                    console.warn('[SquadPage] Session check failed:', res.status);
+                    return;
+                }
+
+                // Get full session data
+                const sessionCheck = await res.json();
+                const createRes = await fetch('/api/session/create');
+                if (createRes.ok) {
+                    const sessionData = await createRes.json();
+                    if (mounted) {
+                        setSessionData(sessionData.session || sessionData);
+                    }
+                } else if (mounted) {
+                    // Fallback to entryId from session check
+                    setSessionData({ entryId: sessionCheck.entryId });
                 }
             } catch (err) {
                 console.error('[SquadPage] Error loading session:', err);
-                if (mounted && err instanceof Error && err.message.includes('Session')) {
-                    setTimeout(() => router.push('/login'), 2000);
-                }
+                // Don't auto-redirect on errors - let user stay on page
             }
         };
 

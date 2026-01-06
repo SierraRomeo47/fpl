@@ -36,21 +36,33 @@ export default function LeaguesPage() {
 
         const loadData = async () => {
             try {
-                // Try to get session with retry
-                const sessionRes = await fetchWithRetry('/api/session/create');
+                // First check if we have a valid session via cookies
+                const sessionRes = await fetchWithRetry('/api/session');
                 
                 if (!sessionRes.ok) {
-                    if (sessionRes.status === 404) {
-                        // No session found, redirect to login
+                    // Only redirect if it's a 401 (unauthorized) - means no valid session
+                    if (sessionRes.status === 401) {
                         router.push('/login');
                         return;
                     }
-                    throw new Error(`Session error: ${sessionRes.status}`);
+                    // For other errors, don't redirect - just log
+                    console.warn('[LeaguesPage] Session check failed:', sessionRes.status);
+                    return;
                 }
 
-                const data = await sessionRes.json();
-                if (!mounted) return;
+                // Get full session data
+                const sessionCheck = await sessionRes.json();
+                const createRes = await fetch('/api/session/create');
+                let data;
+                if (createRes.ok) {
+                    data = await createRes.json();
+                    data = data.session || data;
+                } else {
+                    // Fallback to entryId from session check
+                    data = { entryId: sessionCheck.entryId };
+                }
 
+                if (!mounted) return;
                 setSessionData(data);
                 
                 // Fetch entry data with retry
