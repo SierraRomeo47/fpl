@@ -64,13 +64,13 @@ interface FixtureDetailViewProps {
     teamId: number;
     fixtures: any[];
     teams: any[];
-    currentEvent: number;
+    currentEvent: number | { id: number };
     player: any;
 }
 
 export function FixtureDetailView({ teamId, fixtures, teams, currentEvent, player }: FixtureDetailViewProps) {
     // Normalize currentEvent to a number
-    const currentEventNum = typeof currentEvent === 'number' ? currentEvent : (currentEvent?.id || 1);
+    const currentEventNum = typeof currentEvent === 'number' ? currentEvent : (typeof currentEvent === 'object' && currentEvent !== null && 'id' in currentEvent ? currentEvent.id : 1);
     
     // Get next 10 fixtures for this team (excluding finished fixtures and current gameweek)
     // Show fixtures starting from NEXT gameweek (currentEvent + 1)

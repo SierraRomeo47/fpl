@@ -4,7 +4,7 @@ interface FixtureDifficultyProps {
     teamId: number;
     fixtures: any[];
     teams: any[];
-    currentEvent: number;
+    currentEvent: number | { id: number };
     compact?: boolean; // For smaller cards
 }
 
@@ -67,7 +67,7 @@ export function FixtureDifficulty({ teamId, fixtures, teams, currentEvent, compa
     };
 
     // Normalize currentEvent to a number
-    const currentEventNum = typeof currentEvent === 'number' ? currentEvent : (currentEvent?.id || 1);
+    const currentEventNum = typeof currentEvent === 'number' ? currentEvent : (typeof currentEvent === 'object' && currentEvent !== null && 'id' in currentEvent ? (currentEvent as any).id : 1);
     
     // Get next 3 fixtures for this team
     // IMPORTANT: Show fixtures starting from NEXT gameweek (currentEvent + 1), not current

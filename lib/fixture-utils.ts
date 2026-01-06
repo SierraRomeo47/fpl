@@ -16,11 +16,11 @@ export function getTeamShortName(teamId: number, teams: any[]): string {
 export function getNextFixtures(
     teamId: number,
     fixtures: any[],
-    currentEvent: number,
+    currentEvent: number | { id: number },
     count: number = 5
 ): any[] {
     // Normalize currentEvent to a number
-    const currentEventNum = typeof currentEvent === 'number' ? currentEvent : (currentEvent?.id || 1);
+    const currentEventNum = typeof currentEvent === 'number' ? currentEvent : (typeof currentEvent === 'object' && currentEvent !== null && 'id' in currentEvent ? currentEvent.id : 1);
     
     return fixtures
         .filter((f: any) => {
