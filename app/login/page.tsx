@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Dices, Trophy, Activity, Users } from 'lucide-react';
+import { Activity, Users } from 'lucide-react';
+import { BrandLogo } from '@/components/brand-logo';
 
 export default function SimplifiedLogin() {
     const [entryId, setEntryId] = useState('');
@@ -63,17 +64,11 @@ export default function SimplifiedLogin() {
     return (
         <div className="min-h-screen flex w-full">
             {/* Left Editorial Panel */}
-            <div className="hidden lg:flex lg:w-1/2 bg-surface-container-low relative overflow-hidden flex-col justify-between p-12 border-r-2 border-outline-variant/30">
-                <div className="z-10">
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center justify-center bg-primary text-white w-10 h-10 rounded-md relative overflow-hidden">
-                            <Dices className="w-5 h-5 absolute" style={{ transform: 'translate(-4px, -4px)' }} />
-                            <Trophy className="w-5 h-5 absolute" style={{ transform: 'translate(4px, 4px)' }} />
-                        </div>
-                        <h2 className="text-primary text-2xl font-bold uppercase tracking-tight font-headline">FPL DnD</h2>
-                    </div>
+            <div className="hidden lg:flex lg:w-1/2 bg-surface-container-low relative overflow-hidden flex-col justify-between p-12 sm:p-14 border-r-2 border-outline-variant/30">
+                <div className="z-10 w-full max-w-lg">
+                    <BrandLogo size="hero" showTagline tone="editorial" />
                 </div>
-                <div className="z-10 max-w-lg mt-auto">
+                <div className="z-10 mt-auto w-full max-w-lg">
                     <h1 className="text-[3.5rem] leading-none font-bold text-on-surface mb-6 font-headline tracking-tight">The High-Contrast Curator.</h1>
                     <p className="text-lg text-on-surface-variant font-body mb-8">
                         Experience your fantasy football data securely backed by multi-source integration. Gain the edge with Live Gameweek Analysis, Effective Ownership mapping, and predictive rank tracking.
@@ -97,12 +92,8 @@ export default function SimplifiedLogin() {
             {/* Right Functional Canvas */}
             <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 py-12 bg-surface relative">
                 {/* Mobile Brand (Visible only on small screens) */}
-                <div className="lg:hidden mb-16 flex items-center gap-2">
-                    <div className="flex items-center justify-center bg-primary text-white w-8 h-8 rounded-md relative overflow-hidden">
-                        <Dices className="w-4 h-4 absolute" style={{ transform: 'translate(-3px, -3px)' }} />
-                        <Trophy className="w-4 h-4 absolute" style={{ transform: 'translate(3px, 3px)' }} />
-                    </div>
-                    <h2 className="text-primary text-2xl font-bold uppercase tracking-tight font-headline">FPL DnD</h2>
+                <div className="mb-16 w-full max-w-lg lg:hidden">
+                    <BrandLogo size="lg" showTagline />
                 </div>
 
                 <div className="max-w-md w-full mx-auto lg:mx-0">

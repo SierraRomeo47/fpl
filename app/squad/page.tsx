@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Shield, Trophy, TrendingUp, ChevronDown, Search, X as XIcon, GitCompare } from "lucide-react";
+import { Users, Shield, Trophy, TrendingUp, ChevronDown, Search, X as XIcon, GitCompare, Activity } from "lucide-react";
 import { useFPLData } from "@/lib/hooks/use-fpl-data";
 import { InsightsPitchView } from "@/components/insights/insights-pitch-view";
 import { PlayerDetailModal } from "@/components/insights/player-detail-modal";
@@ -25,6 +25,16 @@ function getJerseyNumber(player: any): string | number {
     if (player.squad_number && player.squad_number > 0) return player.squad_number;
     const defaults: Record<number, number> = { 1: 1, 2: 5, 3: 8, 4: 9 };
     return defaults[player.element_type] || '?';
+}
+
+function formatActiveChipName(chip: string | null | undefined): string {
+    if (!chip) return '';
+    const c = String(chip).toLowerCase().trim();
+    if (c === '3xc') return 'Triple Captain';
+    if (c === 'wildcard') return 'Wild Card';
+    if (c === 'freehit' || c === 'free_hit') return 'Free Hit';
+    if (c === 'bboost') return 'Bench Boost';
+    return chip.replace(/_/g, ' ');
 }
 // ============ END UTILITY FUNCTIONS ============
 
@@ -143,6 +153,20 @@ export default function SquadPage() {
         myTeam?.transfers != null
             ? Math.max(0, (myTeam.transfers.limit ?? 0) - (myTeam.transfers.made ?? 0))
             : null;
+
+    const eventForPage = bootstrap.events.find((e: any) => e.id === currentEventId);
+    const isLiveCurrentGw = !!eventForPage?.is_current;
+    const entryHist = picks?.entry_history as
+        | { points?: number; event_transfers_cost?: number }
+        | undefined;
+    const transferCost = Number(entryHist?.event_transfers_cost ?? 0);
+    const pointsGross = entryHist?.points;
+    const netLiveGw =
+        pointsGross !== undefined && pointsGross !== null
+            ? Number(pointsGross) - transferCost
+            : null;
+    const activeChipCode = picks?.active_chip as string | null | undefined;
+    const activeChipLabel = formatActiveChipName(activeChipCode);
 
     // Check if player is unavailable (injured, suspended, or AFCON)
     const isPlayerUnavailable = (player: any): boolean => {
@@ -512,13 +536,14 @@ export default function SquadPage() {
             <div className="min-h-screen bg-surface pb-24 pt-6">
                 <div className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
                     {/* Header Section */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-8">
                         <div>
                             <h1 className="text-3xl md:text-4xl font-black font-headline tracking-tight text-on-surface">Pick Team</h1>
                             <p className="text-on-surface-variant mt-1 font-medium">Gameweek {currentEvent?.id || currentEventId} · 1 FT available</p>
                         </div>
                             
-                            {/* Deadline Box - Moved here below header */}
+                        <div className="flex flex-col gap-3 w-full md:w-80 md:shrink-0 min-w-0 sm:min-w-[20rem]">
+                            {/* Deadline: fixed min width to avoid width jitter; timer uses tabular nums + min-w */}
                             {(() => {
                                     // Find the next deadline that is in the future
                                     const upcomingDeadline = bootstrap?.events
@@ -700,43 +725,48 @@ export default function SquadPage() {
                                     const minutesRemaining = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
                                     const secondsRemaining = Math.floor((timeRemaining % (1000 * 60)) / 1000);
                                     
-                                    // Format countdown display
+                                    // Format countdown display (pad segments so string length stays stable → less layout shift)
                                     const formatCountdown = () => {
                                         if (daysRemaining > 0) {
                                             return `${daysRemaining}d ${hoursRemaining.toString().padStart(2, '0')}h ${minutesRemaining.toString().padStart(2, '0')}m ${secondsRemaining.toString().padStart(2, '0')}s`;
                                         } else if (hoursRemaining > 0) {
-                                            return `${hoursRemaining}h ${minutesRemaining.toString().padStart(2, '0')}m ${secondsRemaining.toString().padStart(2, '0')}s`;
+                                            return `${hoursRemaining.toString().padStart(2, '0')}h ${minutesRemaining.toString().padStart(2, '0')}m ${secondsRemaining.toString().padStart(2, '0')}s`;
                                         } else if (minutesRemaining > 0) {
-                                            return `${minutesRemaining}m ${secondsRemaining.toString().padStart(2, '0')}s`;
+                                            return `${minutesRemaining.toString().padStart(2, '0')}m ${secondsRemaining.toString().padStart(2, '0')}s`;
                                         } else {
-                                            return `${secondsRemaining}s`;
+                                            return `${secondsRemaining.toString().padStart(2, '0')}s`;
                                         }
                                     };
                                     
                                     return (
-                                        <div className="w-full md:w-auto">
-                                            <div className="bg-primary/5 rounded-2xl p-4 border-2 border-primary/20 flex items-center gap-4 shadow-sm">
-                                                <div className="w-12 h-12 rounded-full bg-surface border-2 border-primary/30 flex items-center justify-center text-primary shrink-0">
-                                                    <svg xmlns="http://www.w-w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                        <div className="w-full min-w-0">
+                                            <div className="bg-primary/5 rounded-2xl p-4 border-2 border-primary/20 flex items-center gap-3 shadow-sm w-full min-w-0">
+                                                <div className="w-11 h-11 rounded-full bg-surface border-2 border-primary/30 flex items-center justify-center text-primary shrink-0">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                                                 </div>
-                                                <div>
+                                                <div className="min-w-0 flex-1">
                                                     <p className="text-xs font-bold text-primary tracking-wider uppercase font-headline">Next Deadline</p>
                                                     {timeRemaining > 0 ? (
-                                                        <p className="text-xl md:text-2xl font-black text-on-surface tracking-tight mt-0.5">
+                                                        <p
+                                                            className="text-xl sm:text-2xl font-black text-on-surface tabular-nums slashed-zero mt-0.5 w-[19ch] max-w-full whitespace-nowrap"
+                                                            style={{ fontVariantNumeric: 'tabular-nums' }}
+                                                        >
                                                             {formatCountdown()}
                                                         </p>
                                                     ) : (
-                                                        <p className="text-base font-bold text-error">Deadline Passed</p>
+                                                        <p className="w-[19ch] max-w-full text-base font-bold text-error tabular-nums whitespace-nowrap">Deadline passed</p>
                                                     )}
                                                 </div>
                                             </div>
                                         </div>
                                     );
                                 })()}
+                        </div>
                     </div>
                             
-                            {/* Action Buttons - Moved here underneath header */}
-                            <div className="flex flex-wrap items-center gap-3 mt-4">
+                            {/* Action row: buttons left, live GW h-10 aligned to the right */}
+                            <div className="mt-4 flex w-full flex-wrap items-center justify-between gap-3">
+                                <div className="flex flex-wrap items-center gap-3">
                                 <button
                                     type="button"
                                     title={
@@ -753,7 +783,7 @@ export default function SquadPage() {
                                             }
                                         }, 100);
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold bg-[#1c1b1b] text-white border-2 border-[#1c1b1b] shadow-[4px_4px_0px_0px_rgba(255,107,0,1)] transition-all hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_0px_rgba(255,107,0,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                                    className="h-10 min-h-10 inline-flex items-center gap-2 px-4 rounded-lg font-bold bg-[#1c1b1b] text-white border-2 border-[#1c1b1b] shadow-[4px_4px_0px_0px_rgba(255,107,0,1)] transition-all hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_0px_rgba(255,107,0,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                                 >
                                     <TrendingUp className="w-4 h-4 shrink-0 text-tertiary" aria-hidden />
                                     <span className="whitespace-nowrap">Improve Team</span>
@@ -767,7 +797,6 @@ export default function SquadPage() {
                                     onClick={() => {
                                         setShowUpgrades(true);
                                         setShowTeamComparison(true);
-                                        // Scroll to upgrade section after a brief delay to ensure it's rendered
                                         setTimeout(() => {
                                             const upgradeSection = document.getElementById('upgrade-recommendations');
                                             if (upgradeSection) {
@@ -775,11 +804,56 @@ export default function SquadPage() {
                                             }
                                         }, 100);
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold bg-surface-container-lowest text-on-surface border-2 border-outline-variant hover:bg-surface-container transition-all"
+                                    className="h-10 min-h-10 inline-flex items-center gap-2 px-4 rounded-lg font-bold bg-surface-container-lowest text-on-surface border-2 border-outline-variant hover:bg-surface-container transition-all"
                                 >
                                     <GitCompare className="w-4 h-4" />
-                                    <span>Compare vs Database</span>
+                                    <span className="whitespace-nowrap">Compare vs Database</span>
                                 </button>
+                                </div>
+                                <div
+                                    className="h-10 min-h-10 w-full min-w-0 min-[500px]:ms-auto min-[500px]:w-auto min-[500px]:max-w-[20rem] shrink-0 border-2 border-primary/20 rounded-lg bg-primary/5 pl-1.5 pr-1.5 sm:pr-2.5"
+                                    aria-label="Live gameweek total and active chip"
+                                >
+                                    <div className="flex h-full w-full min-w-0 items-center justify-end gap-1.5 sm:gap-2">
+                                        <div
+                                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
+                                                isLiveCurrentGw
+                                                    ? 'border-primary/30 bg-surface text-primary'
+                                                    : 'border-outline-variant/40 bg-surface-container text-on-surface-variant'
+                                            }`}
+                                        >
+                                            <Activity
+                                                className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isLiveCurrentGw ? 'animate-pulse' : ''}`}
+                                                strokeWidth={2}
+                                                aria-hidden
+                                            />
+                                        </div>
+                                        <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2">
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <span className="text-[10px] sm:text-xs font-bold text-primary tracking-tight font-headline uppercase leading-none whitespace-nowrap">
+                                                    {isLiveCurrentGw ? 'Live GW' : `GW ${currentEventId}`}
+                                                </span>
+                                                {isLiveCurrentGw && (
+                                                    <span className="text-[8px] sm:text-[9px] font-bold uppercase leading-none px-1 py-0.5 rounded bg-primary text-primary-foreground">
+                                                        Live
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="shrink-0 text-base sm:text-lg font-black tabular-nums leading-none text-on-surface">
+                                                {netLiveGw !== null ? netLiveGw : '—'}
+                                            </span>
+                                            {activeChipCode ? (
+                                                <span className="inline-flex max-w-[5.5rem] sm:max-w-[8.5rem] shrink-0 items-center truncate rounded-md border border-primary/30 bg-primary/15 px-1.5 py-0.5 text-[10px] sm:text-xs font-bold text-primary">
+                                                    {activeChipLabel}
+                                                </span>
+                                            ) : (
+                                                <span className="shrink-0 text-[10px] sm:text-xs text-on-surface-variant font-medium leading-none">
+                                                    No chip
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                     {/* Pitch and Bench Container */}

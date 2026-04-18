@@ -11,7 +11,8 @@ export async function GET(
     try {
         const { path } = await params;
         endpoint = path.join('/');
-        const url = `${FPL_BASE_URL}/${endpoint}`;
+        const search = req.nextUrl.search;
+        const url = `${FPL_BASE_URL}/${endpoint}${search}`;
 
         console.log('[FPL Proxy] Fetching:', url);
 

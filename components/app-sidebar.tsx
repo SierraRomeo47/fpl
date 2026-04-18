@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Users, History, CheckSquare, Trophy, Menu, X as XIcon, LogOut, ArrowLeftRight, Dices, Moon, Sun, Gamepad2 } from "lucide-react";
+import { Home, Users, History, CheckSquare, Trophy, Menu, X as XIcon, LogOut, ArrowLeftRight, Moon, Sun, Gamepad2 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { getPlayerInitials } from '@/lib/player-photo-utils';
@@ -86,13 +87,15 @@ export function AppSidebar() {
                 ${isOpen ? 'translate-x-0' : '-translate-x-full'}
                 lg:static lg:min-h-full lg:translate-x-0 lg:self-stretch
             `}>
-                {/* Branding Lockup */}
-                <div className="p-6 flex items-center gap-2">
-                    <div className="flex items-center justify-center bg-primary text-white w-8 h-8 rounded-md relative overflow-hidden shrink-0">
-                        <Dices className="w-4 h-4 absolute" style={{ transform: 'translate(-3px, -3px)' }} />
-                        <Trophy className="w-4 h-4 absolute" style={{ transform: 'translate(3px, 3px)' }} />
-                    </div>
-                    <h1 className="text-primary font-headline text-2xl font-black uppercase tracking-tight">FPL DnD</h1>
+                {/* Branding lockup */}
+                <div className="p-6">
+                    <Link
+                        href="/dashboard"
+                        className="inline-flex rounded-lg outline-none ring-offset-background transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary"
+                        onClick={() => setIsOpen(false)}
+                    >
+                        <BrandLogo size="lg" />
+                    </Link>
                 </div>
 
                 {/* User Profile Area */}

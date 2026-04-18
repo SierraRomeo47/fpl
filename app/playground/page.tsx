@@ -24,6 +24,7 @@ import {
     Share2,
     Info,
     X,
+    Play,
 } from 'lucide-react';
 import { useFPLData } from '@/lib/hooks/use-fpl-data';
 import { InsightsPitchView } from '@/components/insights/insights-pitch-view';
@@ -32,11 +33,16 @@ import { PlayerDetailModal } from '@/components/insights/player-detail-modal';
 import { PlaygroundMatchPlayback } from '@/components/playground/match-playback';
 import { FoosballTable } from '@/components/playground/foosball-table';
 import { buildBestAlternateTeam } from '@/lib/playground/build-alternate-team';
+import { buildGhostStartingXi } from '@/lib/playground/build-ghost-xi';
 import { getPlaygroundExpectedPoints } from '@/lib/playground/expected-points';
 import { simulateMatch, type MatchResult, type SimTuning } from '@/lib/playground/match-engine';
+import { FPL_FORMATION_PRESETS, buildXiForFormation } from '@/lib/playground/fpl-formations';
+import { buildOpponentEleven, type OpponentMode } from '@/lib/playground/build-opponent-xi';
+import { buildSimShareText, recordSimSessionEnd, readSimEngagement } from '@/lib/playground/engagement';
 import { toast } from 'sonner';
 
 const TOUR_KEY = 'fpl-playground-tour-dismissed';
+
 
 async function fetchWithRetry(
     url: string,
@@ -65,10 +71,18 @@ export default function PlaygroundPage() {
     const [battleMode, setBattleMode] = useState(false);
     const [alternateTeam, setAlternateTeam] = useState<any[]>([]);
     const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
+    const [lastAwayXi, setLastAwayXi] = useState<any[]>([]);
+    const [simGhostBudget, setSimGhostBudget] = useState<'100' | 'match_squad'>('100');
     const [showTour, setShowTour] = useState(false);
     const [simTuning, setSimTuning] = useState<SimTuning>({ attackBias: 1, defenseBias: 1 });
-    const [playgroundMode, setPlaygroundMode] = useState<'sim' | 'foosball'>('sim');
     const [foosballTarget, setFoosballTarget] = useState<5 | 10>(5);
+    const [foosballGameActive, setFoosballGameActive] = useState(false);
+    const [foosballTableKey, setFoosballTableKey] = useState(0);
+    const [opponentMode, setOpponentMode] = useState<OpponentMode>('last_gw');
+    const [foosballFormationId, setFoosballFormationId] = useState<string>(
+        FPL_FORMATION_PRESETS.find((f) => f.id === '433')?.id ?? FPL_FORMATION_PRESETS[0]?.id ?? '433',
+    );
+    const [foosballOverrideHome, setFoosballOverrideHome] = useState<any[] | null>(null);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -117,31 +131,19 @@ export default function PlaygroundPage() {
         }
     }, [picks?.picks, currentEvent?.id, playgroundTeam.length, playgroundGW]);
 
-    const ghostAwayXi = useMemo(() => {
-        if (!elements.length) return [] as any[];
-        const altPicks = buildBestAlternateTeam(elements as any, 100);
-        const awayPicks = (altPicks as any[]).filter((p: any) => p.position <= 11);
-        let awayXi = awayPicks
-            .map((pick: any) => elements.find((p: any) => p.id === pick.element))
-            .filter(Boolean) as any[];
-        if (awayXi.length < 11) {
-            const used = new Set(awayXi.map((p: any) => p.id));
-            const fill = (elements as any[])
-                .filter((p: any) => p.status === 'a' && !used.has(p.id))
-                .sort(
-                    (a: any, b: any) =>
-                        Number.parseFloat(b.form) * 2 +
-                        (Number.parseFloat(b.ep_next) || 0) -
-                        (Number.parseFloat(a.form) * 2 + (Number.parseFloat(a.ep_next) || 0))
-                );
-            for (const p of fill) {
-                if (awayXi.length >= 11) break;
-                awayXi.push(p);
-                used.add(p.id);
-            }
-        }
-        return awayXi.slice(0, 11);
-    }, [elements]);
+    const awayFoosballXi = useMemo(
+        () => (elements.length ? (buildOpponentEleven(elements as any, opponentMode) as any[]) : []),
+        [elements, opponentMode]
+    );
+
+    const squadBudgetM = useMemo(
+        () =>
+            playgroundTeam.reduce((sum: number, pick: any) => {
+                const pl = elements.find((p: any) => p.id === pick.element);
+                return sum + (pl?.now_cost || 0);
+            }, 0) / 10,
+        [playgroundTeam, elements]
+    );
 
     if (!sessionData || baseLoading || !bootstrap || !history) {
         return (
@@ -159,51 +161,52 @@ export default function PlaygroundPage() {
         .map((pick: any) => getPlayer(pick.element))
         .filter(Boolean);
 
+    const homeFoosball =
+        Array.isArray(foosballOverrideHome) && foosballOverrideHome.length >= 11
+            ? foosballOverrideHome.slice(0, 11)
+            : startingXiPlayers;
+
     const runSimulation = () => {
         if (startingXiPlayers.length < 11) {
             toast.error('Need 11 starters on the pitch to run the sim.');
             return;
         }
-        const altPicks = buildBestAlternateTeam(elements as any, 100);
-        const awayPicks = (altPicks as any[]).filter((p: any) => p.position <= 11);
-        let awayXi = awayPicks.map((pick: any) => getPlayer(pick.element)).filter(Boolean) as any[];
-        if (awayXi.length < 11) {
-            const used = new Set(awayXi.map((p: any) => p.id));
-            const fill = (elements as any[])
-                .filter((p: any) => p.status === 'a' && !used.has(p.id))
-                .sort(
-                    (a: any, b: any) =>
-                        Number.parseFloat(b.form) * 2 +
-                        (Number.parseFloat(b.ep_next) || 0) -
-                        (Number.parseFloat(a.form) * 2 + (Number.parseFloat(a.ep_next) || 0))
-                );
-            for (const p of fill) {
-                if (awayXi.length >= 11) break;
-                awayXi.push(p);
-                used.add(p.id);
-            }
-        }
-        if (awayXi.length < 11) {
+        const budgetM = simGhostBudget === 'match_squad' ? squadBudgetM : 100;
+        const awayXi = buildGhostStartingXi(elements as any, budgetM, getPlayer);
+        if (!awayXi) {
             toast.error('Could not build opponent XI from current data.');
             return;
         }
+        setLastAwayXi(awayXi);
         const res = simulateMatch({
             homeXi: startingXiPlayers.slice(0, 11),
-            awayXi: awayXi.slice(0, 11),
+            awayXi,
             entryId: sessionData.entryId,
             gameweek: baselineGw,
             tuning: simTuning,
         });
         setMatchResult(res);
-        toast.success(`Full time: ${res.homeGoals}–${res.awayGoals}`);
+        const streakMeta = recordSimSessionEnd(res.homeGoals, res.awayGoals);
+        const extra = streakMeta.streak > 1 ? ` · ${streakMeta.streak} sim wins in a row` : '';
+        toast.success(`Full time: ${res.homeGoals}–${res.awayGoals}${extra}`);
     };
 
     const shareResult = async () => {
         if (!matchResult) return;
-        const line = `FPL Playground · GW${baselineGw}: ${matchResult.homeGoals}-${matchResult.awayGoals} · seed ${matchResult.seed}`;
+        const mvpPlayer = [...startingXiPlayers, ...lastAwayXi].find(
+            (p: any) => p?.id === matchResult.mvpPlayerId
+        );
+        const { streak } = readSimEngagement();
+        const line = buildSimShareText(
+            matchResult.homeGoals,
+            matchResult.awayGoals,
+            baselineGw,
+            matchResult.seed,
+            { mvpName: mvpPlayer?.web_name ?? null, streak }
+        );
         try {
             await navigator.clipboard.writeText(line);
-            toast.success('Result copied to clipboard');
+            toast.success('Share line copied — challenge your league to beat the sim');
         } catch {
             toast.error('Could not copy');
         }
@@ -228,52 +231,13 @@ export default function PlaygroundPage() {
                                     Team Playground
                                 </h1>
                                 <p className="text-xs text-muted-foreground md:text-sm">
-                                    Edit your squad, run a quick sim, or jump to{' '}
+                                    Real-time foosball is on top; edit your squad and run the instant sim below, or
+                                    open{' '}
                                     <Link href="/insights" className="text-primary underline">
                                         Scout
                                     </Link>
                                     .
                                 </p>
-                                <div className="mt-3 flex flex-wrap items-center gap-2">
-                                    <span className="text-xs text-muted-foreground">Mode:</span>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant={playgroundMode === 'sim' ? 'default' : 'outline'}
-                                        onClick={() => setPlaygroundMode('sim')}
-                                    >
-                                        Instant sim
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant={playgroundMode === 'foosball' ? 'default' : 'outline'}
-                                        onClick={() => setPlaygroundMode('foosball')}
-                                    >
-                                        Play foosball
-                                    </Button>
-                                    {playgroundMode === 'foosball' && (
-                                        <>
-                                            <span className="text-xs text-muted-foreground">First to</span>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant={foosballTarget === 5 ? 'secondary' : 'outline'}
-                                                onClick={() => setFoosballTarget(5)}
-                                            >
-                                                5
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant={foosballTarget === 10 ? 'secondary' : 'outline'}
-                                                onClick={() => setFoosballTarget(10)}
-                                            >
-                                                10
-                                            </Button>
-                                        </>
-                                    )}
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -294,6 +258,196 @@ export default function PlaygroundPage() {
                             </Button>
                         </AlertDescription>
                     </Alert>
+                )}
+
+                {playgroundTeam.length > 0 && (
+                    <div className="space-y-4">
+                        <Card className="overflow-hidden border border-border bg-card shadow-sm">
+                            <CardHeader className="space-y-1 border-b border-border pb-3">
+                                <CardTitle className="flex flex-wrap items-center gap-2 text-base md:text-lg">
+                                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-primary/15 text-primary">
+                                        <Trophy className="h-4 w-4" />
+                                    </span>
+                                    Real-time foosball
+                                </CardTitle>
+                                <p className="text-xs text-muted-foreground">
+                                    Press <strong>Start</strong> to run the table; W/S and arrows as per the on-screen
+                                    hints. First to {foosballTarget} goals wins.
+                                </p>
+                                <div className="flex flex-wrap items-center gap-2 pt-1">
+                                    <span className="text-xs font-medium text-muted-foreground">First to</span>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant={foosballTarget === 5 ? 'default' : 'outline'}
+                                        onClick={() => {
+                                            setFoosballTarget(5);
+                                            setFoosballGameActive(false);
+                                            setFoosballTableKey((k) => k + 1);
+                                        }}
+                                    >
+                                        5
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant={foosballTarget === 10 ? 'default' : 'outline'}
+                                        onClick={() => {
+                                            setFoosballTarget(10);
+                                            setFoosballGameActive(false);
+                                            setFoosballTableKey((k) => k + 1);
+                                        }}
+                                    >
+                                        10
+                                    </Button>
+                                    {foosballGameActive && (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            className="text-xs"
+                                            onClick={() => {
+                                                setFoosballGameActive(false);
+                                                setFoosballTableKey((k) => k + 1);
+                                            }}
+                                        >
+                                            Stop &amp; return to start
+                                        </Button>
+                                    )}
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-3 px-4 pb-6 pt-0 sm:px-6">
+                                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
+                                    <div className="flex flex-col gap-1 text-xs">
+                                        <span className="text-muted-foreground">Opponent (CPU)</span>
+                                        <select
+                                            className="max-w-xs rounded border border-border bg-card px-2 py-1.5 text-foreground"
+                                            value={opponentMode}
+                                            onChange={(e) => {
+                                                setOpponentMode(e.target.value as OpponentMode);
+                                                setFoosballGameActive(false);
+                                                setFoosballTableKey((k) => k + 1);
+                                            }}
+                                        >
+                                            <option value="last_gw">Top form / last-GW signal</option>
+                                            <option value="season">Best season to date</option>
+                                            <option value="template">Budget template (alt)</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col gap-1 text-xs">
+                                        <span className="text-muted-foreground">FPL formation (you)</span>
+                                        <div className="flex flex-wrap gap-1">
+                                            <select
+                                                className="max-w-xs rounded border border-border bg-card px-2 py-1.5 text-foreground"
+                                                value={foosballFormationId}
+                                                onChange={(e) => setFoosballFormationId(e.target.value)}
+                                            >
+                                                {FPL_FORMATION_PRESETS.map((f) => (
+                                                    <option key={f.id} value={f.id}>
+                                                        {f.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    const shape = FPL_FORMATION_PRESETS.find(
+                                                        (f) => f.id === foosballFormationId
+                                                    );
+                                                    const pool = playgroundTeam
+                                                        .map((pk: any) => getPlayer(pk.element))
+                                                        .filter(Boolean) as any[];
+                                                    if (pool.length < 11) {
+                                                        toast.error('Need at least 11 players in the squad list.');
+                                                        return;
+                                                    }
+                                                    if (!shape) return;
+                                                    const xi = buildXiForFormation(pool, {
+                                                        d: shape.d,
+                                                        m: shape.m,
+                                                        a: shape.a,
+                                                    });
+                                                    if (xi) {
+                                                        setFoosballOverrideHome(xi);
+                                                        setFoosballGameActive(false);
+                                                        setFoosballTableKey((k) => k + 1);
+                                                        toast.success('Foosball XI updated from your squad for that shape.');
+                                                    } else {
+                                                        toast.error('Could not build a legal 11 for that shape.');
+                                                    }
+                                                }}
+                                            >
+                                                Apply
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {homeFoosball.length >= 11 && awayFoosballXi.length >= 11 ? (
+                                    <div className="space-y-2">
+                                        {!foosballGameActive && (
+                                            <p className="max-w-4xl text-xs text-muted-foreground">
+                                                Keyboard help, rod picks, and live score are above the pitch — only the
+                                                start gate covers the table.
+                                            </p>
+                                        )}
+                                        <FoosballTable
+                                            key={foosballTableKey}
+                                            homeXi={homeFoosball.slice(0, 11) as any[]}
+                                            awayXi={awayFoosballXi}
+                                            targetScore={foosballTarget}
+                                            gameActive={foosballGameActive}
+                                            pitchStartOverlay={
+                                                !foosballGameActive ? (
+                                                    <div className="pointer-events-auto absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-xl bg-zinc-950/75 px-4 text-center backdrop-blur-[2px]">
+                                                        <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-primary bg-primary/20 shadow-[4px_4px_0_0_hsl(var(--primary))]">
+                                                            <Play
+                                                                className="h-10 w-10 text-primary-foreground"
+                                                                fill="currentColor"
+                                                                strokeWidth={0.5}
+                                                                aria-hidden
+                                                            />
+                                                        </div>
+                                                        <p className="font-headline text-lg font-black tracking-tight text-white">
+                                                            Start game
+                                                        </p>
+                                                        <Button
+                                                            type="button"
+                                                            size="lg"
+                                                            className="mt-1 gap-2 font-headline"
+                                                            onClick={() => setFoosballGameActive(true)}
+                                                        >
+                                                            <Play className="h-4 w-4" fill="currentColor" />
+                                                            Start match
+                                                        </Button>
+                                                    </div>
+                                                ) : null
+                                            }
+                                        />
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                        Need 11 players in your squad and valid opponent data.
+                                    </p>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <div
+                            className="relative flex items-center gap-3 py-2"
+                            role="separator"
+                            aria-label="Squad tools and instant simulation below"
+                        >
+                            <div className="h-px flex-1 bg-border" />
+                            <div className="shrink-0 rounded-full border border-border bg-muted/50 px-4 py-1.5 text-center">
+                                <span className="text-xs font-headline font-bold uppercase tracking-widest text-muted-foreground">
+                                    Squad lab &amp; instant sim
+                                </span>
+                            </div>
+                            <div className="h-px flex-1 bg-border" />
+                        </div>
+                    </div>
                 )}
 
                 <Card className="border-primary/30 bg-gradient-to-br from-primary/10 to-accent/10">
@@ -318,6 +472,33 @@ export default function PlaygroundPage() {
                             </div>
                         ) : (
                             <div className="space-y-6">
+                                <details className="group rounded-lg border border-border/80 bg-muted/20 px-3 py-2 text-sm">
+                                    <summary className="cursor-pointer list-none font-headline font-semibold text-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+                                        <span className="text-primary">Ideas to keep it viral</span> — sim, Card
+                                        Wars &amp; foosball
+                                    </summary>
+                                    <ul className="mt-2 list-disc space-y-1.5 pl-4 text-xs text-muted-foreground">
+                                        <li>
+                                            <strong className="text-foreground">Share the seed</strong> after Instant
+                                            sim: same XI + GW + your entry id → same score — dares land in group chats.
+                                        </li>
+                                        <li>
+                                            <strong className="text-foreground">Tag a rival</strong> on Card Wars:
+                                            &quot;My XI beat the Best Alternate 5-2 on stats—screenshot or it didn’t
+                                            happen&quot; (use the orange copy button).
+                                        </li>
+                                        <li>
+                                            <strong className="text-foreground">Foosball streaks</strong> (this
+                                            device): we toast when you go on a run — use &quot;Copy share line&quot; on
+                                            the end screen to challenge mates.
+                                        </li>
+                                        <li>
+                                            <strong className="text-foreground">League weeklies</strong>: pick one
+                                            scoreline a week (sim or table), pin it in the WhatsApp group, loser buys
+                                            coffee.
+                                        </li>
+                                    </ul>
+                                </details>
                                 <div className="flex flex-col gap-3 rounded-lg border border-primary/20 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <Button
@@ -328,6 +509,10 @@ export default function PlaygroundPage() {
                                                     setPlaygroundTeam([...picks.picks]);
                                                     setPlaygroundGW(currentEvent?.id || null);
                                                     setMatchResult(null);
+                                                    setLastAwayXi([]);
+                                                    setFoosballOverrideHome(null);
+                                                    setFoosballGameActive(false);
+                                                    setFoosballTableKey((k) => k + 1);
                                                 }
                                             }}
                                             className="gap-2"
@@ -386,28 +571,31 @@ export default function PlaygroundPage() {
                                     </div>
                                 </div>
 
-                                {playgroundMode === 'foosball' && playgroundTeam.length > 0 && (
-                                    <div className="rounded-xl border border-primary/25 bg-card/40 p-4">
-                                        <h3 className="mb-2 text-sm font-semibold text-foreground">Real-time foosball</h3>
-                                        {startingXiPlayers.length >= 11 && ghostAwayXi.length >= 11 ? (
-                                            <FoosballTable
-                                                homeXi={startingXiPlayers.slice(0, 11) as any[]}
-                                                awayXi={ghostAwayXi}
-                                                targetScore={foosballTarget}
-                                            />
-                                        ) : (
-                                            <p className="text-sm text-muted-foreground">
-                                                Need 11 starters on the pitch and valid opponent data from the game.
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-
-                                {playgroundMode === 'sim' && (
                                 <div
                                     className="rounded-lg border border-dashed border-border/90 bg-card/30 p-3 text-sm"
                                     aria-label="Simulation weight tuning"
                                 >
+                                    <label className="mb-3 flex max-w-md flex-col gap-1">
+                                        <span className="text-xs font-medium text-foreground">
+                                            Ghost opponent budget
+                                        </span>
+                                        <span className="text-[11px] text-muted-foreground">
+                                            Same optimiser as Card Wars; £100m is the classic ghost. Match squad uses
+                                            your team&apos;s total value.
+                                        </span>
+                                        <select
+                                            className="mt-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                                            value={simGhostBudget}
+                                            onChange={(e) =>
+                                                setSimGhostBudget(e.target.value as '100' | 'match_squad')
+                                            }
+                                        >
+                                            <option value="100">£100.0m ghost</option>
+                                            <option value="match_squad">
+                                                Match my squad (£{squadBudgetM.toFixed(1)}m)
+                                            </option>
+                                        </select>
+                                    </label>
                                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                                         <span className="font-medium text-foreground">Sim weights (next run)</span>
                                         <Button
@@ -469,9 +657,8 @@ export default function PlaygroundPage() {
                                         </label>
                                     </div>
                                 </div>
-                                )}
 
-                                {playgroundMode === 'sim' && matchResult && (
+                                {matchResult && (
                                     <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
                                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                                             <h3 className="text-lg font-bold text-foreground">
@@ -484,9 +671,29 @@ export default function PlaygroundPage() {
                                                 Seed {matchResult.seed} (reproducible for this XI + GW)
                                             </span>
                                         </div>
+                                        {matchResult.mvpPlayerId != null && (
+                                            <p className="text-sm text-muted-foreground">
+                                                MOTM (most sim goals):{' '}
+                                                <span className="font-medium text-foreground">
+                                                    {(
+                                                        [...startingXiPlayers, ...lastAwayXi].find(
+                                                            (p: any) => p.id === matchResult.mvpPlayerId
+                                                        ) as { web_name?: string } | undefined
+                                                    )?.web_name ?? '—'}
+                                                </span>
+                                            </p>
+                                        )}
                                         <PlaygroundMatchPlayback
                                             events={matchResult.events}
                                             homePlayers={startingXiPlayers.map((p: any) => ({
+                                                id: p.id,
+                                                code: p.code,
+                                                photo: p.photo,
+                                                web_name: p.web_name,
+                                                team: p.team,
+                                                element_type: p.element_type,
+                                            }))}
+                                            awayPlayers={lastAwayXi.map((p: any) => ({
                                                 id: p.id,
                                                 code: p.code,
                                                 photo: p.photo,
@@ -506,7 +713,11 @@ export default function PlaygroundPage() {
                                                 <AccordionContent className="text-sm text-muted-foreground">
                                                     <ul className="list-disc space-y-1 pl-4">
                                                         <li>Uses your starting XI stats from FPL bootstrap (form, xP, ICT).</li>
-                                                        <li>Opponent is a budget-optimised ghost squad (same engine as Card Wars budget).</li>
+                                                        <li>
+                                                            Opponent is a budget-optimised ghost squad (picker above:
+                                                            £100m or match your squad value — same builder as Card
+                                                            Wars).
+                                                        </li>
                                                         <li>
                                                             Seeded randomness — same squad + GW + entry yields the same seed
                                                             (not real PL scores).

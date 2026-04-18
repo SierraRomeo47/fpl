@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Trophy, Star, ArrowUp, ArrowDown, Calendar, BrainCircuit } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { cn } from '@/lib/utils';
 import { useFPLData } from "@/lib/hooks/use-fpl-data";
 import { FPLNewsFeed } from "@/components/dashboard/fpl-news-feed";
 import { RivalRadar } from "@/components/rival-radar";
@@ -118,24 +119,90 @@ export default function Dashboard() {
     }
 
     const currentEvent = bootstrap.events.find((e: any) => e.is_current) || bootstrap.events.find((e: any) => e.is_next);
+    const currentEventIsLive = Boolean(currentEvent?.is_current && !currentEvent?.finished);
     const lastGW = history.current[history.current.length - 1];
     const prevGW = history.current[history.current.length - 2];
+    const liveEntryHistory = (picks as any)?.entry_history;
+    const liveGwPointsRaw = Number(liveEntryHistory?.points ?? 0) - Number(liveEntryHistory?.event_transfers_cost ?? 0);
+    const liveGwPoints = Number.isFinite(liveGwPointsRaw) ? liveGwPointsRaw : null;
 
     const sumGwPoints = history.current.reduce((sum: number, gw: any) => sum + (gw.points || 0), 0);
     /** Prefer official cumulative from latest GW (avoids drift vs summing gw.points). */
-    const headlineTotalPoints = lastGW?.total_points ?? sumGwPoints;
+    const headlineTotalPoints =
+        Number(liveEntryHistory?.total_points) ||
+        Number(entry?.summary_overall_points) ||
+        Number(lastGW?.total_points) ||
+        sumGwPoints;
+    const displayOverallRank =
+        Number(liveEntryHistory?.overall_rank) ||
+        Number(entry?.summary_overall_rank) ||
+        Number(lastGW?.overall_rank) ||
+        null;
+    const displayGwRank = Number(liveEntryHistory?.rank) || Number(lastGW?.rank) || null;
     const avgPoints = Math.round(sumGwPoints / history.current.length);
     /** Positive = rank number decreased vs prev GW (improved). */
     const rankChange = prevGW && lastGW ? prevGW.overall_rank - lastGW.overall_rank : 0;
     const rankImproved = rankChange > 0;
 
+    /** Largest single-GW overall-rank improvement (story stat — not shown elsewhere on this page). */
+    let bestRankClimb = 0;
+    let bestRankClimbEvent: number | null = null;
+    for (let i = 1; i < history.current.length; i++) {
+        const prev = history.current[i - 1] as any;
+        const cur = history.current[i] as any;
+        const pr = Number(prev?.overall_rank);
+        const cr = Number(cur?.overall_rank);
+        if (!Number.isFinite(pr) || !Number.isFinite(cr)) continue;
+        const climb = pr - cr;
+        if (climb > bestRankClimb) {
+            bestRankClimb = climb;
+            bestRankClimbEvent = cur.event;
+        }
+    }
+    const formatRankDelta = (n: number) => {
+        if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+        if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+        return n.toLocaleString();
+    };
+
+    /** Biggest single-GW “points left on the bench” (FPL history). */
+    let peakBenchPts = 0;
+    let peakBenchEvent: number | null = null;
+    for (const gw of history.current as any[]) {
+        const b = Number(gw.points_on_bench ?? 0);
+        if (Number.isFinite(b) && b > peakBenchPts) {
+            peakBenchPts = b;
+            peakBenchEvent = gw.event;
+        }
+    }
+
+    /** Total points paid for extra transfers across the season (hits). */
+    const totalTransferHitPts = history.current.reduce(
+        (s: number, gw: any) => s + Number(gw.event_transfers_cost || 0),
+        0
+    );
+
+    /** Keep chart historical, but patch current/live GW point/rank with live entry_history when available. */
+    const chartHistory = history.current.map((gw: any) => {
+        if (!currentEventIsLive || !currentEvent?.id) return gw;
+        if (gw.event !== currentEvent.id) return gw;
+        return {
+            ...gw,
+            points: liveGwPoints != null ? liveGwPoints : gw.points,
+            overall_rank:
+                Number.isFinite(Number(liveEntryHistory?.overall_rank)) && Number(liveEntryHistory?.overall_rank) > 0
+                    ? Number(liveEntryHistory.overall_rank)
+                    : gw.overall_rank,
+        };
+    });
+
     // Chart data for ALL gameweeks from GW1
     const chartData = {
-        labels: history.current.map((gw: any) => `GW${gw.event}`),
+        labels: chartHistory.map((gw: any) => `GW${gw.event}`),
         datasets: [
             {
                 label: 'Overall Rank',
-                data: history.current.map((gw: any) => gw.overall_rank),
+                data: chartHistory.map((gw: any) => gw.overall_rank),
                 borderColor: '#ff6b00',
                 backgroundColor: 'rgba(255, 107, 0, 0.1)',
                 yAxisID: 'y',
@@ -150,7 +217,7 @@ export default function Dashboard() {
             },
             {
                 label: 'Points',
-                data: history.current.map((gw: any) => gw.points),
+                data: chartHistory.map((gw: any) => gw.points),
                 borderColor: '#0084ff',
                 backgroundColor: 'rgba(0, 132, 255, 0.1)',
                 yAxisID: 'y1',
@@ -225,8 +292,8 @@ export default function Dashboard() {
 
     return (
         <>
-            <div className="min-h-screen bg-surface pb-24 pt-6 overflow-x-hidden">
-                <div className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+            <div className="min-h-screen min-w-0 bg-surface pb-24 pt-6 overflow-x-hidden">
+                <div className="mx-auto max-w-6xl min-w-0 space-y-6 p-4 md:p-6 lg:p-8">
                     {/* Header Section */}
                     <div className="mb-8">
                         <h1 className="text-3xl md:text-4xl font-black font-headline tracking-tight text-on-surface">Dashboard</h1>
@@ -253,7 +320,9 @@ export default function Dashboard() {
                         <div className="bg-surface-container-lowest rounded-2xl p-6 relative overflow-hidden border-2 border-outline-variant hover:-translate-y-1 hover:shadow-lg transition-all duration-200">
                             <div className="relative z-10">
                                 <p className="text-sm font-bold text-primary tracking-wider font-headline uppercase">OVERALL RANK</p>
-                                <p className="text-5xl font-black mt-2 tracking-tighter text-on-surface drop-shadow-sm">{lastGW?.overall_rank?.toLocaleString() || 'N/A'}</p>
+                                <p className="text-5xl font-black mt-2 tracking-tighter text-on-surface drop-shadow-sm">
+                                    {displayOverallRank ? displayOverallRank.toLocaleString() : 'N/A'}
+                                </p>
                                 {rankChange !== 0 && (
                                     <div className={`mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-bold text-sm ${rankImproved ? 'bg-tertiary/10 text-tertiary' : 'bg-error/10 text-error'}`}>
                                         {rankImproved ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
@@ -270,10 +339,14 @@ export default function Dashboard() {
                         <div className="bg-primary rounded-2xl p-6 relative overflow-hidden border-2 border-primary text-white shadow-lg shadow-primary/30 hover:-translate-y-1 hover:shadow-primary/40 transition-all duration-200">
                             <div className="relative z-10">
                                 <p className="text-sm font-bold tracking-wider font-headline uppercase text-white/90">GAMEWEEK RANK</p>
-                                <p className="text-5xl font-black mt-2 tracking-tighter drop-shadow-md">{lastGW?.rank != null ? lastGW.rank.toLocaleString() : 'N/A'}</p>
+                                <p className="text-5xl font-black mt-2 tracking-tighter drop-shadow-md">
+                                    {displayGwRank ? displayGwRank.toLocaleString() : 'N/A'}
+                                </p>
                                 <div className="mt-4 flex flex-col gap-2">
                                     <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/20 rounded-full font-bold text-sm w-fit">
-                                        <span>Average GW: {avgPoints}</span>
+                                        <span>
+                                            {currentEventIsLive && liveGwPoints != null ? `Live GW: ${liveGwPoints}` : `Average GW: ${avgPoints}`}
+                                        </span>
                                     </div>
                                     {lastGW?.event_transfers_cost > 0 && (
                                         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/30 rounded-full font-bold text-xs text-white/90 w-fit">
@@ -285,12 +358,124 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* Rival Radar Container */}
-                    <RivalRadar currentGw={currentEvent?.id} />
+                    {/* Rank vs Points + Season Highlights — above AI Insights, GW status, and Live Match Center */}
+                    <div className="grid md:grid-cols-3 gap-6">
+                        {/* Rank Progression Chart */}
+                        <Card className="md:col-span-2 gap-0 py-0 border-outline-variant bg-surface-container-lowest rounded-2xl overflow-hidden">
+                            <CardHeader className="p-4 md:p-6 pb-3">
+                                <div className="flex items-center justify-between gap-4">
+                                    <CardTitle className="font-headline font-bold text-lg md:text-xl text-on-surface">
+                                        Rank vs Points
+                                    </CardTitle>
+                                    <div className="flex items-center gap-3 text-xs font-bold">
+                                        <span className="inline-flex items-center gap-1.5 text-[#ff6b00]">
+                                            <span className="h-2.5 w-2.5 rounded-sm bg-[#ff6b00]" aria-hidden />
+                                            Rank
+                                        </span>
+                                        <span className="inline-flex items-center gap-1.5 text-[#0084ff]">
+                                            <span className="h-2.5 w-2.5 rounded-full bg-[#0084ff]" aria-hidden />
+                                            Points
+                                        </span>
+                                    </div>
+                                </div>
+                                <p className="mt-1 text-xs font-medium text-on-surface-variant">
+                                    Your season trend — rank (left axis) vs points (right axis).
+                                </p>
+                            </CardHeader>
+                            <CardContent className="p-4 md:p-6 pt-0">
+                                <div className="h-60 md:h-72">
+                                    <Line data={chartData} options={chartOptions as any} />
+                                </div>
+                            </CardContent>
+                        </Card>
 
-                    {/* Live Match Center */}
-                    <div className="mt-8 mb-8">
-                        <LiveMatchCenter currentEventId={currentEvent?.id} />
+                        {/* Top Performers */}
+                        <Card className="border-border flex flex-col h-full gap-0 py-0 overflow-hidden">
+                            <CardHeader className="p-4 md:p-6 pb-3 flex-none">
+                                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                                    <Star className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                                    Season Highlights
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex flex-col gap-2 p-4 md:p-6 pt-0">
+                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
+                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
+                                        🏆 Best Gameweek
+                                    </span>
+                                    <span className="font-bold text-sm md:text-base text-primary">{Math.max(...history.current.map((gw: any) => gw.points))} pts</span>
+                                </div>
+                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
+                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
+                                        📈 Highest Rank
+                                    </span>
+                                    <span className="font-bold text-sm md:text-base text-primary">{Math.min(...history.current.map((gw: any) => gw.overall_rank)).toLocaleString()}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
+                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
+                                        📊 Avg GW Points
+                                    </span>
+                                    <span className="font-bold text-sm md:text-base">{avgPoints} pts</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 p-2 md:p-3 rounded-lg bg-background border border-border">
+                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2 min-w-0">
+                                        🚀 Best rank climb
+                                    </span>
+                                    <span className="font-bold text-sm md:text-base text-primary text-right shrink-0">
+                                        {bestRankClimb > 0 && bestRankClimbEvent != null ? (
+                                            <>
+                                                ↑ {formatRankDelta(bestRankClimb)}
+                                                <span className="ml-1 font-semibold text-muted-foreground text-xs">
+                                                    (GW{bestRankClimbEvent})
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <span className="text-muted-foreground font-medium">—</span>
+                                        )}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 p-2 md:p-3 rounded-lg bg-background border border-border">
+                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2 min-w-0">
+                                        🪑 Peak bench
+                                    </span>
+                                    <span className="font-bold text-sm md:text-base text-right shrink-0">
+                                        {peakBenchPts > 0 && peakBenchEvent != null ? (
+                                            <>
+                                                <span className="text-primary">{peakBenchPts} pts</span>
+                                                <span className="ml-1 font-semibold text-muted-foreground text-xs">
+                                                    (GW{peakBenchEvent})
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <span className="text-muted-foreground font-medium">—</span>
+                                        )}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 p-2 md:p-3 rounded-lg bg-background border border-border">
+                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2 min-w-0">
+                                        ⚡ Transfer hits
+                                    </span>
+                                    <span
+                                        className={cn(
+                                            'font-bold text-sm md:text-base text-right shrink-0',
+                                            totalTransferHitPts > 0 ? 'text-destructive' : 'text-foreground'
+                                        )}
+                                    >
+                                        {totalTransferHitPts > 0 ? `−${totalTransferHitPts} pts` : '0 pts'}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
+                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
+                                        🔄 Total Transfers
+                                    </span>
+                                    <span className="font-bold text-sm md:text-base">{history.current.reduce((sum: number, gw: any) => sum + (gw.event_transfers || 0), 0)}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Rival Radar — min-w-0 so wide squad tables scroll inside the card, not the page */}
+                    <div className="min-w-0 max-w-full">
+                        <RivalRadar currentGw={currentEvent?.id} />
                     </div>
 
                     {/* AI Insights Card */}
@@ -344,65 +529,9 @@ export default function Dashboard() {
                         </Card>
                     )}
 
-                    <div className="grid md:grid-cols-3 gap-6 mt-8">
-                        {/* Rank Progression Chart */}
-                        <div className="md:col-span-2 bg-surface-container-lowest rounded-2xl border-2 border-outline-variant p-6 p-4">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-headline font-bold text-xl text-on-surface">Rank vs Points</h3>
-                                <div className="flex items-center gap-4 text-sm font-semibold">
-                                    <div className="flex items-center gap-2 text-[#ff6b00]">
-                                        <div className="w-3 h-3 bg-[#ff6b00] border-2 border-[#ff6b00] mr-1" />
-                                        Rank
-                                    </div>
-                                    <div className="flex items-center gap-2 text-[#0084ff]">
-                                        <div className="w-3 h-3 bg-[#0084ff] rounded-full mr-1" />
-                                        Points
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="h-64">
-                                <Line data={chartData} options={chartOptions as any} />
-                            </div>
-                            <p className="text-center text-xs font-semibold text-on-surface-variant mt-4">
-                                Chart displaying Rank (Orange, left axis) and Points (Blue, right axis) over the Gameweeks.
-                            </p>
-                        </div>
-
-                        {/* Top Performers */}
-                        <Card className="border-border flex flex-col h-full">
-                            <CardHeader className="p-4 md:p-6 pb-3 md:pb-4 flex-none">
-                                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                                    <Star className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-                                    Season Highlights
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex-1 flex flex-col justify-between p-4 md:p-6 pt-0">
-                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
-                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
-                                        🏆 Best Gameweek
-                                    </span>
-                                    <span className="font-bold text-sm md:text-base text-primary">{Math.max(...history.current.map((gw: any) => gw.points))} pts</span>
-                                </div>
-                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
-                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
-                                        📈 Highest Rank
-                                    </span>
-                                    <span className="font-bold text-sm md:text-base text-primary">{Math.min(...history.current.map((gw: any) => gw.overall_rank)).toLocaleString()}</span>
-                                </div>
-                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
-                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
-                                        📊 Avg GW Points
-                                    </span>
-                                    <span className="font-bold text-sm md:text-base">{avgPoints} pts</span>
-                                </div>
-                                <div className="flex items-center justify-between p-2 md:p-3 rounded-lg bg-background border border-border">
-                                    <span className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
-                                        🔄 Total Transfers
-                                    </span>
-                                    <span className="font-bold text-sm md:text-base">{history.current.reduce((sum: number, gw: any) => sum + (gw.event_transfers || 0), 0)}</span>
-                                </div>
-                            </CardContent>
-                        </Card>
+                    {/* Live Match Center */}
+                    <div>
+                        <LiveMatchCenter currentEventId={currentEvent?.id} />
                     </div>
 
                     {/* FPL News Feed */}

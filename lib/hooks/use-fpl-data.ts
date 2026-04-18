@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { usePathname } from 'next/navigation';
 
@@ -78,11 +79,16 @@ export function useHistory(entryId?: number) {
 }
 
 // Hook: Get entry picks for specific gameweek
-export function useEventPicks(entryId?: number, eventId?: number) {
+export function useEventPicks(
+    entryId?: number,
+    eventId?: number,
+    options?: { refetchInterval?: number | false }
+) {
     return useQuery({
         queryKey: ['event-picks', entryId, eventId],
         queryFn: () => fetchViaProxy(`/entry/${entryId}/event/${eventId}/picks`),
         enabled: !!entryId && !!eventId,
+        refetchInterval: options?.refetchInterval ?? false,
     });
 }
 
@@ -100,7 +106,12 @@ export function useFPLData(entryId?: number, currentEvent?: number, enableMyTeam
     const entry = useEntry(entryId);
     const myTeam = useMyTeam(enableMyTeam && !!entryId);
     const history = useHistory(entryId);
-    const picks = useEventPicks(entryId, currentEvent);
+    const picksRefetchInterval = useMemo(() => {
+        const ev = bootstrap.data?.events?.find((e: { id: number; is_current?: boolean }) => e.id === currentEvent);
+        if (ev?.is_current) return 45_000;
+        return false;
+    }, [bootstrap.data, currentEvent]);
+    const picks = useEventPicks(entryId, currentEvent, { refetchInterval: picksRefetchInterval });
     const fixtures = useFixtures();
 
     return {

@@ -1,11 +1,16 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { Fragment, useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, ArrowLeft, Trophy, Users, ShieldAlert, CircleAlert, Crown, ArrowUp, ArrowDown, ChevronRight, TrendingUp, TrendingDown, Eye, Pin } from "lucide-react";
+import { Activity, ArrowLeft, CircleAlert, Crown, ArrowUp, ArrowDown, Pin, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { GwSquadStatsTable, type FplPick } from '@/components/gw-squad-stats-table';
+
+type EntryPicksPayload = { picks: FplPick[]; active_chip: string | null };
+import { normaliseLiveElementMap, type LiveElementRow, type PlayerProfile } from '@/lib/live-match-utils';
+import { cn } from '@/lib/utils';
 
 export default function LeagueLiveDashboard({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -16,6 +21,11 @@ export default function LeagueLiveDashboard({ params }: { params: Promise<{ id: 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pinnedRivals, setPinnedRivals] = useState<any[]>([]);
+    const [expandedEntry, setExpandedEntry] = useState<number | null>(null);
+    const [playersMap, setPlayersMap] = useState<Map<number, PlayerProfile>>(new Map());
+    const [teamShort, setTeamShort] = useState<Map<number, string>>(new Map());
+    const [liveMap, setLiveMap] = useState<Map<number, LiveElementRow> | null>(null);
+    const [picksByEntry, setPicksByEntry] = useState<Record<number, EntryPicksPayload>>({});
 
     useEffect(() => {
         const saved = localStorage.getItem('fpl_pinned_rivals');
@@ -65,6 +75,30 @@ export default function LeagueLiveDashboard({ params }: { params: Promise<{ id: 
                 if (!mounted) return;
                 setActiveGw(currentEvent);
 
+                const pmap = new Map<number, PlayerProfile>();
+                for (const el of bootData.elements || []) {
+                    pmap.set(el.id, {
+                        id: el.id,
+                        web_name: el.web_name,
+                        element_type: el.element_type,
+                        team: el.team,
+                    });
+                }
+                if (mounted) setPlayersMap(pmap);
+                const tm = new Map<number, string>();
+                for (const t of bootData.teams || []) {
+                    tm.set(t.id, t.short_name);
+                }
+                if (mounted) setTeamShort(tm);
+
+                const liveRes = await fetch(`/api/fpl/event/${currentEvent}/live/`);
+                if (liveRes.ok) {
+                    const liveP = await liveRes.json();
+                    if (mounted) setLiveMap(normaliseLiveElementMap(liveP));
+                } else if (mounted) {
+                    setLiveMap(null);
+                }
+
                 // 2. Map Player DB for EO mapping
                 const playerCache: Record<number, string> = {};
                 bootData.elements.forEach((p: any) => {
@@ -106,6 +140,45 @@ export default function LeagueLiveDashboard({ params }: { params: Promise<{ id: 
         loadDashboard();
         return () => { mounted = false; };
     }, [id]);
+
+    useEffect(() => {
+        if (expandedEntry === null || !activeGw) return;
+        if (Object.prototype.hasOwnProperty.call(picksByEntry, expandedEntry)) return;
+        let cancelled = false;
+        void (async () => {
+            try {
+                const res = await fetch(`/api/fpl/entry/${expandedEntry}/event/${activeGw}/picks/`);
+                if (!res.ok || cancelled) {
+                    if (!cancelled) {
+                        setPicksByEntry((p) => ({
+                            ...p,
+                            [expandedEntry]: { picks: [], active_chip: null },
+                        }));
+                    }
+                    return;
+                }
+                const data = await res.json();
+                const raw = (data.picks || []) as FplPick[];
+                const chip = (data.active_chip ?? null) as string | null;
+                if (!cancelled) {
+                    setPicksByEntry((p) => ({
+                        ...p,
+                        [expandedEntry]: { picks: raw, active_chip: chip },
+                    }));
+                }
+            } catch {
+                if (!cancelled) {
+                    setPicksByEntry((p) => ({
+                        ...p,
+                        [expandedEntry]: { picks: [], active_chip: null },
+                    }));
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [expandedEntry, activeGw, picksByEntry]);
 
     if (loading) {
         return (
@@ -167,60 +240,116 @@ export default function LeagueLiveDashboard({ params }: { params: Promise<{ id: 
                     </div>
                 </div>
 
-                <div className="grid lg:grid-cols-3 gap-8">
+                <div className="grid min-w-0 gap-8 lg:grid-cols-3">
                     
                     {/* Left Col: Leaderboard */}
-                    <div className="lg:col-span-2 space-y-6">
+                    <div className="min-w-0 lg:col-span-2 space-y-6">
                         <h2 className="text-2xl font-bold font-headline flex items-center gap-2">
                             <Crown className="w-6 h-6 text-yellow-500" />
                             Live Standings (Top 50)
                         </h2>
                         
-                        <div className="bg-card border border-border rounded-xl overflow-hidden">
+                        <div className="min-w-0 max-w-full bg-card border border-border rounded-xl">
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left">
+                                <table className="w-full min-w-0 table-fixed text-sm text-left">
                                     <thead className="bg-muted text-muted-foreground uppercase text-[0.65rem] font-bold tracking-wider">
                                         <tr>
-                                            <th className="px-4 py-4 text-center">Rank</th>
-                                            <th className="px-4 py-4">Manager</th>
-                                            <th className="px-4 py-4 text-right">GW Pts</th>
-                                            <th className="px-4 py-4 text-right">Total</th>
+                                            <th className="w-14 px-2 py-4 text-center sm:w-16 sm:px-4">Rank</th>
+                                            <th className="min-w-[40%] px-2 py-4 sm:px-4">Manager</th>
+                                            <th className="w-14 px-2 py-4 text-right sm:w-20 sm:px-4">GW Pts</th>
+                                            <th className="w-16 px-2 py-4 text-right sm:w-24 sm:px-4">Total</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border">
                                         {liveData.competitors.map((c: any, i: number) => {
                                             const rankChange = c.last_rank - (i+1); // Positive means they went UP in rank
+                                            const open = expandedEntry === c.entry;
+                                            const picksPayload = picksByEntry[c.entry];
+                                            const picksLoaded = Object.prototype.hasOwnProperty.call(picksByEntry, c.entry);
                                             return (
-                                                <tr key={c.entry} className="hover:bg-primary/5 transition-colors">
-                                                    <td className="px-4 py-4">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <span className="font-bold text-base text-foreground">{i + 1}</span>
-                                                            {rankChange > 0 && <ArrowUp className="w-4 h-4 text-positive" />}
-                                                            {rankChange < 0 && <ArrowDown className="w-4 h-4 text-negative" />}
-                                                            {rankChange === 0 && <div className="w-4 h-4 rounded-full bg-border/50" />}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div>
-                                                                <p className="font-bold text-foreground truncate max-w-[150px] md:max-w-[200px]">{c.team_name}</p>
-                                                                <p className="text-xs text-muted-foreground">{c.player_name}</p>
+                                                <Fragment key={c.entry}>
+                                                    <tr className="hover:bg-primary/5 transition-colors">
+                                                        <td className="px-4 py-4">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <span className="font-bold text-base text-foreground">{i + 1}</span>
+                                                                {rankChange > 0 && <ArrowUp className="w-4 h-4 text-positive" />}
+                                                                {rankChange < 0 && <ArrowDown className="w-4 h-4 text-negative" />}
+                                                                {rankChange === 0 && <div className="w-4 h-4 rounded-full bg-border/50" />}
                                                             </div>
-                                                            <button 
-                                                                onClick={() => togglePin(c)}
-                                                                className={`p-2 rounded-full transition-colors ${pinnedRivals.find(p => p.entry === c.entry) ? 'bg-primary/20 text-primary' : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <div className="flex items-center gap-2 md:gap-3">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setExpandedEntry((e) => (e === c.entry ? null : c.entry))
+                                                                    }
+                                                                    className="flex min-w-0 flex-1 items-center gap-2 rounded-lg text-left hover:bg-muted/40"
+                                                                >
+                                                                    <ChevronDown
+                                                                        className={cn(
+                                                                            'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                                                                            open && 'rotate-180'
+                                                                        )}
+                                                                    />
+                                                                    <div className="min-w-0">
+                                                                        <p className="font-bold text-foreground truncate max-w-[130px] md:max-w-[200px]">
+                                                                            {c.team_name}
+                                                                        </p>
+                                                                        <p className="text-xs text-muted-foreground">{c.player_name}</p>
+                                                                    </div>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        togglePin(c);
+                                                                    }}
+                                                                    className={`shrink-0 p-2 rounded-full transition-colors ${pinnedRivals.find((p) => p.entry === c.entry) ? 'bg-primary/20 text-primary' : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                                                                    aria-label={pinnedRivals.find((p) => p.entry === c.entry) ? 'Unpin rival' : 'Pin rival'}
+                                                                >
+                                                                    <Pin className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-4 text-right font-bold text-primary">
+                                                            {c.gw_points}
+                                                        </td>
+                                                        <td className="px-4 py-4 text-right font-bold text-foreground text-lg">
+                                                            {c.total_points}
+                                                        </td>
+                                                    </tr>
+                                                    {open ? (
+                                                        <tr className="border-b border-border bg-muted/15">
+                                                            <td
+                                                                colSpan={4}
+                                                                className="max-w-0 min-w-0 bg-muted/15 p-0 align-top"
                                                             >
-                                                                <Pin className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-4 text-right font-bold text-primary">
-                                                        {c.gw_points}
-                                                    </td>
-                                                    <td className="px-4 py-4 text-right font-bold text-foreground text-lg">
-                                                        {c.total_points}
-                                                    </td>
-                                                </tr>
+                                                                <div className="min-w-0 max-w-full px-2 py-3 md:px-4">
+                                                                {!picksLoaded ? (
+                                                                    <p className="text-xs text-muted-foreground">Loading squad…</p>
+                                                                ) : !liveMap ? (
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        Live GW data could not be loaded. Refresh the page to try again.
+                                                                    </p>
+                                                                ) : !picksPayload?.picks?.length ? (
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        Squad picks unavailable for this gameweek.
+                                                                    </p>
+                                                                ) : (
+                                                                    <GwSquadStatsTable
+                                                                        picks={picksPayload.picks}
+                                                                        liveMap={liveMap}
+                                                                        playersMap={playersMap}
+                                                                        teamShort={teamShort}
+                                                                        activeChip={picksPayload.active_chip}
+                                                                    />
+                                                                )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ) : null}
+                                                </Fragment>
                                             );
                                         })}
                                     </tbody>

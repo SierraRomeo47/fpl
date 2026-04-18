@@ -2,6 +2,7 @@ import {
     createFoosballState,
     stepFoosball,
     assignPlayersToLanes,
+    assignAwayPlayersToLanes,
     type FoosballInitConfig,
     type FoosballState,
 } from '../foosball-engine';
@@ -29,7 +30,7 @@ function makeCfg(home: FoosballElement[], away: FoosballElement[]): FoosballInit
     return {
         targetScore: 10,
         homeLanes: assignPlayersToLanes(home),
-        awayLanes: assignPlayersToLanes(away),
+        awayLanes: assignAwayPlayersToLanes(away),
         cpuReaction: 0.55,
         reducedMotion: true,
     };
@@ -51,13 +52,31 @@ describe('foosball-engine', () => {
         expect(lanes.every((l) => l.stats.length > 0)).toBe(true);
     });
 
+    it('outfield inter-man Y gap is identical on every rod (e.g. 4-5-1)', () => {
+        const xi = [
+            ...ordered(1, [1]),
+            ...ordered(10, [2, 2, 2, 2]),
+            ...ordered(20, [3, 3, 3, 3, 3]),
+            ...ordered(30, [4]),
+        ];
+        const lanes = assignPlayersToLanes(xi);
+        const yd = lanes[1]!.offsetsY;
+        const ym = lanes[2]!.offsetsY;
+        const yf = lanes[3]!.offsetsY;
+        const step = (a: number[]) => a[1]! - a[0]!;
+        expect(yd.length).toBe(4);
+        expect(ym.length).toBe(5);
+        expect(yf.length).toBe(1);
+        expect(step(yd)).toBeCloseTo(step(ym), 6);
+    });
+
     it('stepFoosball is deterministic for identical inputs', () => {
         const home = ordered(1, [1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4]);
         const away = ordered(100, [1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4]);
         const cfg = makeCfg(home, away);
         let a: FoosballState = createFoosballState();
         let b: FoosballState = createFoosballState();
-        const input = { moveY: 0 as const, activeLane: 2 };
+        const input = { homeLaneMoves: [] as const };
         for (let i = 0; i < 120; i++) {
             a = stepFoosball(cfg, a, input, 1 / 60, i * 16);
             b = stepFoosball(cfg, b, input, 1 / 60, i * 16);

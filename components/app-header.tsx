@@ -1,6 +1,7 @@
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, User, LogOut, Dices, Trophy, Menu } from "lucide-react";
+import { Search, User, LogOut, Menu } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -61,12 +62,8 @@ export function AppHeader() {
         <>
             <header className="sticky top-0 z-30 w-full bg-card border-b border-border h-16 flex items-center justify-between px-4 md:px-6">
                 {/* Mobile Branding (only visible when sidebar is hidden on small screens) */}
-                <div className="lg:hidden flex items-center gap-2 pl-12 lg:pl-0">
-                    <div className="flex items-center justify-center bg-primary text-white w-8 h-8 rounded-md relative overflow-hidden shrink-0">
-                        <Dices className="w-4 h-4 absolute" style={{ transform: 'translate(-3px, -3px)' }} />
-                        <Trophy className="w-4 h-4 absolute" style={{ transform: 'translate(3px, 3px)' }} />
-                    </div>
-                    <h2 className="text-primary text-xl font-bold uppercase tracking-tight font-headline">FPL DnD</h2>
+                <div className="flex items-center gap-2 pl-12 lg:hidden lg:pl-0">
+                    <BrandLogo size="sm" />
                 </div>
 
                 {/* Desktop spacer to keep right-side items aligned properly since justify-between is used */}

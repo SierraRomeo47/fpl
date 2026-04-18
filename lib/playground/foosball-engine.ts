@@ -25,9 +25,13 @@ export type FoosballInitConfig = {
     reducedMotion: boolean;
 };
 
+export type HomeLaneMove = { lane: number; moveY: -1 | 0 | 1 };
+
+/**
+ * At most one move per home lane; two lanes can be controlled in parallel (W/S vs arrows / thumb).
+ */
 export type FoosballInput = {
-    moveY: -1 | 0 | 1;
-    activeLane: number;
+    homeLaneMoves: readonly HomeLaneMove[];
 };
 
 export type FoosballPhase = 'play' | 'reset' | 'won';
@@ -86,11 +90,12 @@ function rodBandXs4(a: number, b: number): readonly [number, number, number, num
  * Bands sit deeper into each half toward the goal mouths so GKs sit nearer their lines and
  * attacking rods do not crowd the centre (no “both forwards on the halfway line”).
  */
-const HOME_ROD_X0 = 0.075;
-const HOME_ROD_X3 = 0.385;
+/** Slightly “ahead” toward halfway so GKs/defs sit deeper into the opponent half (passing room). */
+const HOME_ROD_X0 = 0.095;
+const HOME_ROD_X3 = 0.405;
 
-const AWAY_ROD_X0 = 0.615;
-const AWAY_ROD_X3 = 0.925;
+const AWAY_ROD_X0 = 0.6;
+const AWAY_ROD_X3 = 0.915;
 
 /** Human (left): rod 0 = GK … rod 3 = FWD — equal spacing along the length of the half. */
 export const HOME_ROD_X = rodBandXs4(HOME_ROD_X0, HOME_ROD_X3);
@@ -229,12 +234,21 @@ export function stepFoosball(
     let bvy = state.ball.vy;
     const { scoreHome: sh0, scoreAway: sa0 } = state;
 
-    const active = clamp(input.activeLane | 0, 0, L - 1);
-    const humanSpeed =
-        BASE_ROD_SPEED * (cfg.homeLanes[active]?.stats[0]?.rodSpeed ?? 1) * motionScale;
-    const deltaRod = input.moveY * humanSpeed * dt;
+    const byLane = new Map<number, number>();
+    for (const m of input.homeLaneMoves) {
+        const li = clamp(Math.floor(m.lane), 0, L - 1);
+        const v = m.moveY;
+        if (v === 0) continue;
+        byLane.set(li, (byLane.get(li) ?? 0) + v);
+    }
     const homeNext = [...state.homeRodY] as number[];
-    homeNext[active] = clamp(homeNext[active] + deltaRod, ROD_Y_MIN, ROD_Y_MAX);
+    for (const [li, acc] of byLane) {
+        const adj = acc <= -1 ? -1 : acc >= 1 ? 1 : 0;
+        if (adj === 0) continue;
+        const humanSpeed = BASE_ROD_SPEED * (cfg.homeLanes[li]?.stats[0]?.rodSpeed ?? 1) * motionScale;
+        const deltaRod = adj * humanSpeed * dt;
+        homeNext[li] = clamp(homeNext[li] + deltaRod, ROD_Y_MIN, ROD_Y_MAX);
+    }
 
     const cpuR = cfg.cpuReaction * BASE_CPU_ROD_SPEED * motionScale;
     const awayNext = [...state.awayRodY] as number[];
@@ -354,33 +368,38 @@ export function stepFoosball(
 }
 
 /**
- * Target centre-to-centre gap so the ball can pass between men (hit circles + clearance), with a
- * light formation flavour: DEF slightly tighter, MID default, FWD a bit wider — like line spacing
- * on a real table.
+ * Base channel width (ball can pass) — same for every line.
  */
-function idealCenterGapY(laneIndex: number): number {
+function idealBaseGapY(): number {
     const clearance = 2 * BALL_R * 1.45;
     const base = 2 * MEN_RM_NOMINAL + clearance;
-    const mul =
-        laneIndex === 1 ? 0.96 : laneIndex === 2 ? 1 : laneIndex === 3 ? 1.06 : 1;
-    return Math.max(MEN_DIAMETER_Y + 2 * BALL_R * 1.35, base * mul);
+    return Math.max(MEN_DIAMETER_Y + 2 * BALL_R * 1.35, base);
 }
 
+/** One inter-man gap for all rods so channels match across formations. */
+const UNIFIED_CENTER_GAP = idealBaseGapY();
+
 /**
- * Even spacing on the rod; gap is the minimum of “ball channel” spacing and what fits in the pitch.
+ * Vertical half of the play band; shared gap is derived from the **tallest** DEF/MID/FWD column
+ * (see `computeOutfieldYGap`) so all rods get the same inter-man distance in one formation.
  */
-function offsetsForCount(n: number, laneIndex: number): number[] {
+function maxVerticalHalfForOutfieldStack(): number {
+    return (
+        Math.min(ROD_Y_MIN - PITCH_Y_TOP - MEN_R_Y, PITCH_Y_BOTTOM - ROD_Y_MAX - MEN_R_Y) - 0.012
+    );
+}
+
+function computeOutfieldYGap(nOutfieldMax: number): number {
+    if (nOutfieldMax <= 1) return 0;
+    const maxSpan = 2 * Math.max(0, maxVerticalHalfForOutfieldStack());
+    const capForTallest = maxSpan / (nOutfieldMax - 1);
+    return Math.min(UNIFIED_CENTER_GAP, capForTallest);
+}
+
+function offsetsForCount(n: number, sharedGapY: number): number[] {
     if (n <= 0) return [0];
     if (n === 1) return [0];
-    const idealGap = idealCenterGapY(laneIndex);
-    const maxHalf =
-        Math.min(
-            ROD_Y_MIN - PITCH_Y_TOP - MEN_R_Y,
-            PITCH_Y_BOTTOM - ROD_Y_MAX - MEN_R_Y,
-        ) - 0.004;
-    const maxGapForN = (2 * Math.max(0, maxHalf)) / (n - 1);
-    const gap = Math.min(idealGap, maxGapForN);
-    return Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * gap);
+    return Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * sharedGapY);
 }
 
 /** Rods: GK | DEF | MID | FWD (toward halfway). */
@@ -405,13 +424,19 @@ export function assignPlayersToLanes(orderedXi: FoosballElement[]): FoosballLane
         lanes[0].stats = [defaultStats];
     }
 
-    lanes[1].offsetsY = offsetsForCount(defs.length, 1);
-    lanes[1].stats = defs.length ? defs.map((p) => elementToMenStats(p)) : [];
+    const nDef = defs.length;
+    const nMid = mids.length;
+    const nFwd = fwds.length;
+    const nOutfieldMax = Math.max(1, nDef, nMid, nFwd);
+    const sharedGapY = computeOutfieldYGap(nOutfieldMax);
 
-    lanes[2].offsetsY = offsetsForCount(mids.length, 2);
+    lanes[1].offsetsY = offsetsForCount(nDef, sharedGapY);
+    lanes[1].stats = nDef ? defs.map((p) => elementToMenStats(p)) : [];
+
+    lanes[2].offsetsY = offsetsForCount(nMid, sharedGapY);
     lanes[2].stats = mids.map((p) => elementToMenStats(p));
 
-    lanes[3].offsetsY = offsetsForCount(fwds.length, 3);
+    lanes[3].offsetsY = offsetsForCount(nFwd, sharedGapY);
     lanes[3].stats = fwds.map((p) => elementToMenStats(p));
 
     for (let l = 0; l < FOOSBALL_LANE_COUNT; l++) {
