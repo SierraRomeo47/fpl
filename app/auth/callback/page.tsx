@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createSession } from "@/lib/session-store";
+import { createSession, encodeSessionCookie } from "@/lib/session-store";
 import { FPLClient } from "@/lib/fpl-client";
 
 export default async function AuthCallbackPage({
@@ -31,13 +31,14 @@ export default async function AuthCallbackPage({
 
         // Create session
         const sessionId = crypto.randomUUID();
-        await createSession(sessionId, cookies, me.player.entry);
+        const session = await createSession(sessionId, cookies, me.player.entry);
+        const cookieToken = encodeSessionCookie(session);
 
         // Set cookie and redirect
         const headers = new Headers();
         headers.append(
             "Set-Cookie",
-            `fpl_session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}`
+            `fpl_session_id=${cookieToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}`
         );
 
         // Client-side redirect with success message

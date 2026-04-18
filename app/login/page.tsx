@@ -48,7 +48,13 @@ export default function SimplifiedLogin() {
             });
             
             if (!sessionRes.ok) {
-                throw new Error('Failed to create session');
+                const errBody = await sessionRes.json().catch(() => ({})) as {
+                    hint?: string;
+                    error?: string;
+                };
+                throw new Error(
+                    errBody.hint || errBody.error || 'Failed to create session'
+                );
             }
 
             // Small delay to ensure cookie is processed by browser

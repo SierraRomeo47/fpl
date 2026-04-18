@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createSession, getSession } from '@/lib/session-store';
+import { createSession, getSession, encodeSessionCookie } from '@/lib/session-store';
 import { cookies } from 'next/headers';
 import { FPLClient } from '@/lib/fpl-client';
 
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
         // Also create proper session with cookie for /api/session route
         const sessionId = crypto.randomUUID();
-        await createSession(sessionId, '', entryId);
+        const session = await createSession(sessionId, '', entryId);
 
         const response = NextResponse.json({ 
             success: true,
@@ -52,17 +52,20 @@ export async function POST(request: Request) {
             maxAge: 60 * 60 * 24 * 7,
         };
 
-        response.cookies.set("fpl_session_id", sessionId, cookieOptions);
+        response.cookies.set("fpl_session_id", encodeSessionCookie(session), cookieOptions);
 
         return response;
     } catch (error) {
         console.error('[Session Create] Error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        
+        const configHint =
+            errorMessage.includes('SESSION_SECRET') ? errorMessage : undefined;
+
         return NextResponse.json(
             { 
                 error: 'Failed to create session',
-                message: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+                message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+                hint: configHint,
             },
             { status: 500 }
         );

@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { FPLClient } from "@/lib/fpl-client";
-import { createSession } from "@/lib/session-store";
+import { createSession, encodeSessionCookie } from "@/lib/session-store";
 import { FPLAutomation } from "@/lib/automation";
 
 export async function POST(req: NextRequest) {
@@ -106,11 +106,11 @@ export async function POST(req: NextRequest) {
         // 3. Create Session with the resolved entry ID
         const sessionId = crypto.randomUUID();
         console.log("[Login API] Creating session with entry ID:", entryId);
-        await createSession(sessionId, finalCookies, entryId);
+        const session = await createSession(sessionId, finalCookies, entryId);
 
-        // 4. Set HTTP-Only Cookie
+        // 4. Set HTTP-Only Cookie (signed; works on read-only serverless filesystems)
         const response = NextResponse.json({ success: true, entry: entryId });
-        response.cookies.set("fpl_session_id", sessionId, {
+        response.cookies.set("fpl_session_id", encodeSessionCookie(session), {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",

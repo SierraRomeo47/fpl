@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { request } from "undici";
-import { createSession } from "@/lib/session-store";
+import { createSession, encodeSessionCookie } from "@/lib/session-store";
 import { cookies } from "next/headers";
 import { FPLClient } from "@/lib/fpl-client";
 
@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
 
         // 2. Persist the Session Locally 
         const sessionId = crypto.randomUUID();
-        await createSession(sessionId, rawCookies, entryId);
+        const session = await createSession(sessionId, rawCookies, entryId);
+        const cookieValue = encodeSessionCookie(session);
 
         // 3. Set Next.js HTTP-Only Cookie linking to this Session ID
         const response = NextResponse.json({ 
@@ -57,10 +58,10 @@ export async function POST(req: NextRequest) {
             maxAge: 60 * 60 * 24 * 7, 
         };
 
-        response.cookies.set("fpl_session", sessionId, cookieOptions);
+        response.cookies.set("fpl_session", cookieValue, cookieOptions);
         
         // Note: For backwards compatibility with the simplified mode fallback check
-        response.cookies.set("fpl_session_id", sessionId, cookieOptions);
+        response.cookies.set("fpl_session_id", cookieValue, cookieOptions);
 
         return response;
 
