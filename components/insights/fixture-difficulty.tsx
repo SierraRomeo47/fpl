@@ -15,7 +15,7 @@ function getTeamBadgeUrl(teamCode: number): string {
 const getFDRBorderColor = (difficulty: number) => {
     switch (difficulty) {
         case 1:
-            return 'border-green-600 bg-green-600/20'; // Very Easy - Green
+            return 'border-positive bg-positive-muted'; // Very Easy
         case 2:
             return 'border-lime-500 bg-lime-500/20'; // Easy - Lime/Green-Yellow
         case 3:
@@ -23,7 +23,7 @@ const getFDRBorderColor = (difficulty: number) => {
         case 4:
             return 'border-orange-500 bg-orange-500/20'; // Difficult - Orange
         case 5:
-            return 'border-red-600 bg-red-600/20'; // Very Difficult - Red
+            return 'border-negative bg-negative-muted'; // Very Difficult
         default:
             return 'border-gray-500 bg-gray-500/20';
     }
@@ -32,7 +32,7 @@ const getFDRBorderColor = (difficulty: number) => {
 const getFDRTextColor = (difficulty: number) => {
     switch (difficulty) {
         case 1:
-            return 'text-green-700'; // Very Easy - Green
+            return 'text-positive'; // Very Easy
         case 2:
             return 'text-lime-700'; // Easy - Lime
         case 3:
@@ -40,7 +40,7 @@ const getFDRTextColor = (difficulty: number) => {
         case 4:
             return 'text-orange-700'; // Difficult - Orange
         case 5:
-            return 'text-red-700'; // Very Difficult - Red
+            return 'text-negative'; // Very Difficult
         default:
             return 'text-gray-700';
     }
@@ -52,7 +52,7 @@ export function FixtureDifficulty({ teamId, fixtures, teams, currentEvent, compa
     const getFDRBgColor = (difficulty: number) => {
         switch (difficulty) {
             case 1:
-                return 'bg-green-500/50'; // Very Easy - Green (stronger opacity for clarity)
+                return 'bg-positive/45'; // Very Easy
             case 2:
                 return 'bg-lime-500/50'; // Easy - Lime/Green-Yellow (stronger opacity for clarity)
             case 3:
@@ -60,7 +60,7 @@ export function FixtureDifficulty({ teamId, fixtures, teams, currentEvent, compa
             case 4:
                 return 'bg-orange-500/50'; // Difficult - Orange (stronger opacity for clarity)
             case 5:
-                return 'bg-red-500/50'; // Very Difficult - Red (stronger opacity for clarity)
+                return 'bg-negative/45'; // Very Difficult
             default:
                 return 'bg-gray-500/40';
         }

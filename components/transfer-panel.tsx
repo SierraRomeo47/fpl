@@ -11,6 +11,7 @@ import {
     Search,
     ArrowRightLeft,
     TrendingUp,
+    Activity,
     X,
     Check,
     AlertCircle,
@@ -36,6 +37,7 @@ export function TransferPanel({
     const [playerOut, setPlayerOut] = useState<any>(null);
     const [playerIn, setPlayerIn] = useState<any>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [forecastData, setForecastData] = useState<{ outPoints: number, inPoints: number, diff: number } | null>(null);
 
     const positions = [
         { id: 1, name: "GK", label: "Goalkeepers" },
@@ -84,44 +86,19 @@ export function TransferPanel({
             return;
         }
 
+        const outPoints = parseFloat(playerOut.ep_this || "0") + parseFloat(playerOut.ep_next || "0");
+        const inPoints = parseFloat(playerIn.ep_this || "0") + parseFloat(playerIn.ep_next || "0");
+        const diff = inPoints - outPoints;
+
+        setForecastData({ outPoints, inPoints, diff });
         setIsSubmitting(true);
+        setTimeout(() => setIsSubmitting(false), 800); // Simulate processing time for UX
+    };
 
-        try {
-            const currentEvent = bootstrap.events.find((e: any) => e.is_current);
-
-            const res = await fetch("/api/squad/transfer", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    transfersIn: [playerIn],
-                    transfersOut: [playerOut],
-                    event: currentEvent.id,
-                }),
-            });
-
-            const data = await res.json();
-
-            if (res.ok && data.success) {
-                toast.success("Transfer Complete!", {
-                    description: `${playerOut.web_name} → ${playerIn.web_name}`,
-                });
-                setPlayerOut(null);
-                setPlayerIn(null);
-                if (onTransferComplete) {
-                    onTransferComplete();
-                }
-            } else {
-                toast.error("Transfer Failed", {
-                    description: data.error || "Unable to complete transfer",
-                });
-            }
-        } catch (error) {
-            toast.error("Network Error", {
-                description: "Please try again later.",
-            });
-        } finally {
-            setIsSubmitting(false);
-        }
+    const clearForecast = () => {
+        setForecastData(null);
+        setPlayerOut(null);
+        setPlayerIn(null);
     };
 
     const getTeamName = (teamCode: number) => {
@@ -242,9 +219,9 @@ export function TransferPanel({
                                                 <span className="text-sm">Cost Difference:</span>
                                                 <span
                                                     className={`text-sm font-semibold ${costDiff > 0
-                                                            ? "text-red-500"
+                                                            ? "text-negative"
                                                             : costDiff < 0
-                                                                ? "text-green-500"
+                                                                ? "text-positive"
                                                                 : ""
                                                         }`}
                                                 >
@@ -265,24 +242,55 @@ export function TransferPanel({
                                                 </div>
                                             )}
 
-                                            <Button
-                                                onClick={handleTransferSubmit}
-                                                disabled={
-                                                    isSubmitting || costDiff > remainingBudget
-                                                }
-                                                className="w-full bg-gradient-to-r from-primary to-secondary mt-2"
-                                            >
-                                                {isSubmitting ? (
-                                                    "Processing..."
-                                                ) : (
-                                                    <>
-                                                        <Check className="mr-2 h-4 w-4" />
-                                                        Confirm Transfer
-                                                    </>
+                                                {forecastData && (
+                                                    <div className="pt-4 border-t border-border mt-4">
+                                                        <h4 className="font-bold font-headline mb-2 flex items-center gap-2 text-primary">
+                                                            <Activity className="w-5 h-5" /> Expected Points (Next 2 GWs)
+                                                        </h4>
+                                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                                            <div className="p-3 bg-destructive/10 rounded-lg text-center border border-destructive/20">
+                                                                <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Lost xP</p>
+                                                                <p className="text-xl font-bold text-destructive">{forecastData.outPoints.toFixed(1)}</p>
+                                                            </div>
+                                                            <div className="p-3 bg-positive-muted rounded-lg text-center border border-positive/25">
+                                                                <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Gained xP</p>
+                                                                <p className="text-xl font-bold text-positive">{forecastData.inPoints.toFixed(1)}</p>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div className={`p-4 rounded-lg border ${forecastData.diff > 4 ? 'bg-positive-muted border-positive/35' : forecastData.diff > 0 ? 'bg-primary/10 border-primary/20' : 'bg-muted border-border'}`}>
+                                                            <p className="text-sm font-semibold mb-1">
+                                                                Expected Differential: <span className={forecastData.diff > 0 ? "text-positive" : "text-negative"}>{forecastData.diff > 0 && '+'}{forecastData.diff.toFixed(1)} pts</span>
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {forecastData.diff > 4 ? 
+                                                                    `Excellent move. Brings immediate value even if you take a -4 transfer hit.` : 
+                                                                 forecastData.diff > 0 ? 
+                                                                    `Positive upgrade. It pays off if using a Free Transfer, but fails to break even over 2 weeks if taking a -4 hit.` : 
+                                                                    `Warning: This move actively damages your expected points output according to current FPL projection math.`}
+                                                            </p>
+                                                        </div>
+                                                        <Button variant="outline" className="w-full mt-4" onClick={clearForecast}>
+                                                            Reset Sandbox
+                                                        </Button>
+                                                    </div>
                                                 )}
-                                            </Button>
-                                        </>
-                                    )}
+
+                                                {!forecastData && (
+                                                    <Button
+                                                        onClick={handleTransferSubmit}
+                                                        disabled={isSubmitting || costDiff > remainingBudget}
+                                                        className="w-full bg-gradient-to-r from-primary to-secondary mt-2"
+                                                    >
+                                                        {isSubmitting ? "Evaluating..." : (
+                                                            <>
+                                                                <Check className="mr-2 h-4 w-4" /> Evaluate Scenario
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                )}
+                                            </>
+                                        )}
                                 </div>
                             </CardContent>
                         </Card>

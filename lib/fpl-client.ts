@@ -62,7 +62,19 @@ export class FPLClient {
 
       // Parse JSON response
       const responseText = await body.text();
-      return JSON.parse(responseText);
+      
+      // Handle empty responses
+      if (!responseText || responseText.trim() === '') {
+        console.warn(`[FPL Client] Empty response from: ${endpoint}`);
+        throw new Error(`FPL API returned empty response for ${endpoint}`);
+      }
+      
+      try {
+        return JSON.parse(responseText);
+      } catch (parseError) {
+        console.error(`[FPL Client] JSON parse error for ${endpoint}:`, responseText.substring(0, 200));
+        throw new Error(`Invalid JSON response from FPL API: ${endpoint}`);
+      }
     } catch (error) {
       console.error(`[FPL Client] Request failed:`, error);
       throw error;
@@ -95,8 +107,8 @@ export class FPLClient {
     return this.fetch(`/element-summary/${playerId}/`);
   }
 
-  async makeTransfer(teamId: number, transferData: any) {
-    return this.fetch(`/my-team/${teamId}/transfers/`, {
+  async makeTransfer(transferData: any) {
+    return this.fetch(`/transfers/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -113,5 +125,23 @@ export class FPLClient {
       },
       body: JSON.stringify(picksData),
     });
+  }
+
+  // --- Phase 2: Live Analytics & Sweeping Endpoints ---
+
+  async getLiveEvent(gw: number) {
+    return this.fetch(`/event/${gw}/live/`);
+  }
+
+  async getLeagueStandings(leagueId: number, page: number = 1) {
+    return this.fetch(`/leagues-classic/${leagueId}/standings/?page_standings=${page}`);
+  }
+
+  async getEntryPicks(entryId: number, gw: number) {
+    return this.fetch(`/entry/${entryId}/event/${gw}/picks/`);
+  }
+
+  async getEntryDetails(entryId: number) {
+    return this.fetch(`/entry/${entryId}/`);
   }
 }

@@ -25,35 +25,19 @@ import {
     Percent,
     Globe,
     ChevronDown,
-    Gamepad2,
-    RotateCcw,
-    Save,
-    Plus,
-    Swords
 } from "lucide-react";
 import { useFPLData } from "@/lib/hooks/use-fpl-data";
 import { EnhancedPlayerCard } from "@/components/insights/enhanced-player-card";
 import { PlayerDetailModal } from "@/components/insights/player-detail-modal";
 import { InsightsPitchView } from "@/components/insights/insights-pitch-view";
 import { UpgradeSplitCard } from "@/components/insights/upgrade-split-card";
-import { CardWars } from "@/components/insights/card-wars";
-
-function getPlayerPhotoUrl(player: any): string[] {
-    return [
-        `https://resources.premierleague.com/premierleague/photos/players/250x250/p${player.code}.png`,
-        `https://resources.premierleague.com/premierleague/photos/players/250x250/p${player.photo}.png`,
-    ];
-}
+import { PlayerAvatar } from "@/components/player-avatar";
 
 export default function InsightsPage() {
     const router = useRouter();
     const [sessionData, setSessionData] = useState<{ entryId: number } | null>(null);
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
     const [upgradeSource, setUpgradeSource] = useState<string>('gw_points');
-    const [playgroundTeam, setPlaygroundTeam] = useState<any[]>([]);
-    const [playgroundGW, setPlaygroundGW] = useState<number | null>(null);
-    const [battleMode, setBattleMode] = useState<boolean>(false);
-    const [alternateTeam, setAlternateTeam] = useState<any[]>([]);
 
     // Retry helper with exponential backoff
     const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries = 3): Promise<Response> => {
@@ -78,7 +62,9 @@ export default function InsightsPage() {
         const loadSession = async () => {
             try {
                 // First check if we have a valid session via cookies
-                const res = await fetchWithRetry('/api/session');
+                const res = await fetchWithRetry('/api/session', {
+                    credentials: 'include'
+                });
                 if (!res.ok) {
                     // Only redirect if it's a 401 (unauthorized) - means no valid session
                     if (res.status === 401) {
@@ -92,7 +78,9 @@ export default function InsightsPage() {
 
                 // Get full session data
                 const sessionCheck = await res.json();
-                const createRes = await fetch('/api/session/create');
+                const createRes = await fetch('/api/session/create', {
+                    credentials: 'include'
+                });
                 if (createRes.ok) {
                     const sessionData = await createRes.json();
                     if (mounted) {
@@ -124,14 +112,6 @@ export default function InsightsPage() {
     const elements = bootstrap?.elements || [];
     const getTeam = (teamId: number) => teams.find((t: any) => t.id === teamId);
     
-    // Initialize playground team with current squad (15 players)
-    useEffect(() => {
-        if (picks?.picks && playgroundTeam.length === 0 && !playgroundGW && currentEvent?.id) {
-            setPlaygroundTeam([...picks.picks]);
-            setPlaygroundGW(currentEvent.id);
-        }
-    }, [picks?.picks, currentEvent?.id, playgroundGW]);
-
     // Memoized best performers by team (after teams and elements are defined)
     const bestPerformersByTeam = useMemo(() => {
         if (!elements || !teams || elements.length === 0 || teams.length === 0) return [];
@@ -299,50 +279,6 @@ export default function InsightsPage() {
     
     const getPlayer = (elementId: number) => elements.find((p: any) => p.id === elementId);
 
-    // Function to build best alternate team within budget
-    const buildBestAlternateTeam = (budget: number) => {
-        if (!elements || elements.length === 0) return [];
-
-        // Calculate player scores (form + expected points + total points value)
-        const scoredPlayers = elements
-            .filter((p: any) => p.status === 'a') // Only available players
-            .map((p: any) => ({
-                ...p,
-                score: parseFloat(p.form) * 2 + (parseFloat(p.ep_next) || 0) + (p.total_points / 15)
-            }))
-            .sort((a: any, b: any) => b.score - a.score);
-
-        // Position requirements: 2 GKP, 5 DEF, 5 MID, 3 FWD (15 total)
-        const positionCounts = { 1: 2, 2: 5, 3: 5, 4: 3 };
-        const selected: any[] = [];
-        let remainingBudget = budget * 10; // Convert to tenths
-
-        // First pass: Select best players by position within budget
-        [1, 2, 3, 4].forEach((position) => {
-            const count = positionCounts[position as keyof typeof positionCounts];
-            const candidates = scoredPlayers
-                .filter((p: any) => p.element_type === position)
-                .filter((p: any) => !selected.find(s => s.id === p.id));
-
-            let selectedForPosition = 0;
-            for (const player of candidates) {
-                if (selectedForPosition < count && player.now_cost <= remainingBudget) {
-                    selected.push(player);
-                    remainingBudget -= player.now_cost;
-                    selectedForPosition++;
-                }
-            }
-        });
-
-        // Convert to picks format
-        return selected.map((player: any, index: number) => ({
-            element: player.id,
-            position: index + 1,
-            is_captain: index === 0,
-            is_vice_captain: index === 1
-        }));
-    };
-
     // Position-specific recommendations
     const getTopByPosition = (position: number, count: number) => {
         return elements
@@ -448,7 +384,6 @@ export default function InsightsPage() {
 
     const PlayerRecommendationCard = ({ player, position, rank }: { player: any, position: string, rank: number }) => {
         const team = getTeam(player.team);
-        const photoUrls = getPlayerPhotoUrl(player);
 
         return (
             <button
@@ -462,25 +397,12 @@ export default function InsightsPage() {
                 </div>
 
                 <div className="flex items-start gap-3 mb-3">
-                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-orange-500/10 flex-shrink-0">
-                        <img
-                            src={photoUrls[0]}
-                            alt={player.web_name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                                const img = e.currentTarget;
-                                if (photoUrls[1] && img.src !== photoUrls[1]) {
-                                    img.src = photoUrls[1];
-                                } else {
-                                    img.style.display = 'none';
-                                    const div = document.createElement('div');
-                                    div.className = 'w-full h-full flex items-center justify-center text-2xl font-bold text-primary';
-                                    div.textContent = player.web_name[0];
-                                    img.parentElement!.appendChild(div);
-                                }
-                            }}
-                        />
-                    </div>
+                    <PlayerAvatar
+                        player={{ ...player, id: player.id }}
+                        teamBadgeCode={team?.code}
+                        size="md"
+                        className="border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-orange-500/10"
+                    />
                     <div className="flex-1 min-w-0">
                         <p className="font-bold text-lg truncate">{player.web_name}</p>
                         <p className="text-sm text-muted-foreground">{team?.name}</p>
@@ -492,13 +414,13 @@ export default function InsightsPage() {
                         <p className="text-muted-foreground">Form</p>
                         <p className="font-bold text-primary">{parseFloat(player.form).toFixed(1)}</p>
                     </div>
-                    <div className="text-center p-2 bg-green-500/10 rounded">
+                    <div className="text-center p-2 bg-positive-muted rounded">
                         <p className="text-muted-foreground">Points</p>
                         <p className="font-bold text-green-600">{player.total_points}</p>
                     </div>
                     <div className="text-center p-2 bg-orange-500/10 rounded">
                         <p className="text-muted-foreground">Price</p>
-                        <p className="font-bold text-orange-600">£{(player.now_cost / 10).toFixed(1)}m</p>
+                        <p className="font-bold text-caution">£{(player.now_cost / 10).toFixed(1)}m</p>
                     </div>
                 </div>
 
@@ -528,7 +450,12 @@ export default function InsightsPage() {
                                 <h1 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-foreground">
                                     AI Insights
                                 </h1>
-                                <p className="text-xs md:text-sm text-muted-foreground">Smart recommendations from multiple sources</p>
+                                <p className="text-xs md:text-sm text-muted-foreground">
+                                    Smart recommendations from multiple sources ·{' '}
+                                    <Link href="/playground" className="text-primary hover:underline font-medium">
+                                        Team Playground
+                                    </Link>
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -536,7 +463,7 @@ export default function InsightsPage() {
 
                 {/* Tabs */}
                 <Tabs defaultValue="squad" className="w-full">
-                    <TabsList className="grid w-full grid-cols-5 h-auto bg-card/50 backdrop-blur-sm p-0.5 md:p-1 gap-0.5 md:gap-1">
+                    <TabsList className="grid w-full grid-cols-4 h-auto bg-card/50 backdrop-blur-sm p-0.5 md:p-1 gap-0.5 md:gap-1">
                         <TabsTrigger value="squad" className="flex items-center gap-1 md:gap-2 py-2 md:py-3 text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                             <Brain className="w-3 h-3 md:w-4 md:h-4" />
                             <span className="hidden sm:inline">Squad Builder</span>
@@ -556,11 +483,6 @@ export default function InsightsPage() {
                             <Globe className="w-3 h-3 md:w-4 md:h-4" />
                             <span className="hidden sm:inline">Multi-Source</span>
                             <span className="sm:hidden">Multi</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="playground" className="flex items-center gap-1 md:gap-2 py-2 md:py-3 text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                            <Gamepad2 className="w-3 h-3 md:w-4 md:h-4" />
-                            <span className="hidden sm:inline">Team Playground</span>
-                            <span className="sm:hidden">Play</span>
                         </TabsTrigger>
                     </TabsList>
 
@@ -636,7 +558,7 @@ export default function InsightsPage() {
                                                 <select
                                                     value={upgradeSource}
                                                     onChange={(e) => setUpgradeSource(e.target.value)}
-                                                    className="appearance-none bg-card border border-primary/30 rounded-lg px-4 py-2 pr-10 text-sm font-medium cursor-pointer hover:border-primary/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                    className="appearance-none bg-card border border-primary/30 rounded-lg px-4 py-2 pr-10 text-sm font-medium cursor-pointer hover:border-primary/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
                                                 >
                                                     <optgroup label="Performance">
                                                         <option value="gw_points">Last GW Points</option>
@@ -848,7 +770,7 @@ export default function InsightsPage() {
                                                         </div>
                                                     </div>
                                                     <div className="grid grid-cols-3 gap-2 text-xs">
-                                                        <div className="text-center p-2 bg-green-500/10 rounded">
+                                                        <div className="text-center p-2 bg-positive-muted rounded">
                                                             <p className="text-muted-foreground">Last GW</p>
                                                             <p className="font-bold text-green-600">{player.event_points}</p>
                                                         </div>
@@ -858,7 +780,7 @@ export default function InsightsPage() {
                                                         </div>
                                                         <div className="text-center p-2 bg-orange-500/10 rounded">
                                                             <p className="text-muted-foreground">Price</p>
-                                                            <p className="font-bold text-orange-600">£{(player.now_cost / 10).toFixed(1)}</p>
+                                                            <p className="font-bold text-caution">£{(player.now_cost / 10).toFixed(1)}</p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -917,250 +839,19 @@ export default function InsightsPage() {
                             </CardContent>
                         </Card>
                     </TabsContent>
-
-                    {/* Team Playground Tab */}
-                    <TabsContent value="playground" className="space-y-6 mt-6">
-                        <Card className="border-primary/30 bg-gradient-to-br from-primary/10 to-accent/10">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Gamepad2 className="w-5 h-5 text-primary" />
-                                    Team Playground - Edit Your Squad
-                                </CardTitle>
-                                <p className="text-sm text-muted-foreground">
-                                    Drag & drop players to rearrange, click to swap, experiment with formations
-                                    {playgroundGW && ` · GW ${playgroundGW}`}
-                                </p>
-                            </CardHeader>
-                            <CardContent>
-                                {playgroundTeam.length === 0 ? (
-                                    <div className="text-center p-8 text-muted-foreground">
-                                        <Gamepad2 className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                                        <p className="text-lg font-semibold">No team data available</p>
-                                        <p className="text-sm">Your current squad will load here to start editing</p>
-                                    </div>
-                                ) : (
-                                <div className="space-y-6">
-                                        {/* Action Bar */}
-                                        <div className="flex items-center justify-between p-4 bg-card/50 rounded-lg border border-primary/20">
-                                            <div className="flex items-center gap-3">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        if (picks?.picks) {
-                                                            setPlaygroundTeam([...picks.picks]);
-                                                            setPlaygroundGW(currentEvent?.id || null);
-                                                        }
-                                                    }}
-                                                    className="flex items-center gap-2"
-                                                >
-                                                    <RotateCcw className="w-4 h-4" />
-                                                    Reset
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="flex items-center gap-2"
-                                                >
-                                                    <Save className="w-4 h-4" />
-                                                    Save (Preview)
-                                                </Button>
-                                                <Button
-                                                    variant="default"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        // Calculate current team budget
-                                                        const currentBudget = playgroundTeam.reduce((sum: number, pick: any) => {
-                                                            const player = getPlayer(pick.element);
-                                                            return sum + (player?.now_cost || 0);
-                                                        }, 0) / 10;
-
-                                                        // Build best alternate team
-                                                        const altTeam = buildBestAlternateTeam(currentBudget);
-                                                        setAlternateTeam(altTeam);
-                                                        setBattleMode(true);
-                                                    }}
-                                                    className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700"
-                                                >
-                                                    <Swords className="w-4 h-4" />
-                                                    Card Wars
-                                                </Button>
-                                                            </div>
-                                            <div className="text-sm text-muted-foreground">
-                                                {playgroundTeam.filter((p: any) => p.position <= 11).length} Starting · {playgroundTeam.filter((p: any) => p.position > 11).length} Bench
-                                                            </div>
-                                                        </div>
-
-                                    {/* Card Wars Battle Mode */}
-                                    {battleMode && alternateTeam.length > 0 && (
-                                        <div className="mb-6">
-                                            <CardWars
-                                                myTeam={playgroundTeam}
-                                                alternateTeam={alternateTeam}
-                                                myTeamPlayers={playgroundTeam.map((pick: any) => getPlayer(pick.element)).filter((p: any) => p)}
-                                                alternateTeamPlayers={alternateTeam.map((pick: any) => getPlayer(pick.element)).filter((p: any) => p)}
-                                                teams={teams}
-                                                fixtures={fixtures || []}
-                                                currentEvent={playgroundGW || currentEvent?.id || 1}
-                                                myTeamBudget={playgroundTeam.reduce((sum: number, pick: any) => sum + (getPlayer(pick.element)?.now_cost || 0), 0) / 10}
-                                                alternateTeamBudget={alternateTeam.reduce((sum: number, pick: any) => sum + (getPlayer(pick.element)?.now_cost || 0), 0) / 10}
-                                                onPlayerClick={(player) => setSelectedPlayer(player)}
-                                            />
-                                            <div className="mt-4 flex justify-center">
-                                                <Button
-                                                    variant="outline"
-                                                    onClick={() => setBattleMode(false)}
-                                                >
-                                                    Back to Playground
-                                                </Button>
-                                                            </div>
-                                                            </div>
-                                    )}
-
-                                    {!battleMode && (
-                                    <>
-                                    {/* Starting 11 */}
-                                    <div>
-                                        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                                                <Trophy className="w-5 h-5 text-yellow-500" />
-                                                Starting 11
-                                        </h3>
-                                            <InsightsPitchView
-                                                players={playgroundTeam
-                                                    .filter((p: any) => p.position <= 11)
-                                                    .sort((a: any, b: any) => a.position - b.position)
-                                                    .map((pick: any) => getPlayer(pick.element))
-                                                    .filter((p: any) => p)}
-                                                teams={teams || []}
-                                                fixtures={fixtures || []}
-                                                currentEvent={playgroundGW || currentEvent?.id || 1}
-                                                onPlayerClick={(player) => setSelectedPlayer(player)}
-                                                showRanks={false}
-                                                picksMap={new Map(playgroundTeam.map((pick: any) => [pick.element, pick]))}
-                                                getExpectedPoints={(player: any) => {
-                                                    const nextFixture = fixtures
-                                                        ?.filter((f: any) => {
-                                                            const isTeamInFixture = f.team_h === player.team || f.team_a === player.team;
-                                                            return isTeamInFixture && f.event >= (playgroundGW || currentEvent?.id || 1);
-                                                        })
-                                                        .sort((a: any, b: any) => a.event - b.event)[0];
-                                                    
-                                                    if (!nextFixture) return parseFloat(player.ep_next) || 0;
-                                                    
-                                                    const isHome = nextFixture.team_h === player.team;
-                                                    const difficulty = isHome ? nextFixture.team_h_difficulty : nextFixture.team_a_difficulty;
-                                                    const basePoints = parseFloat(player.ep_next) || parseFloat(player.form) || 0;
-                                                    
-                                                    let multiplier = 1.0;
-                                                    if (difficulty <= 2) multiplier = 1.2;
-                                                    else if (difficulty === 3) multiplier = 1.0;
-                                                    else if (difficulty === 4) multiplier = 0.85;
-                                                    else if (difficulty === 5) multiplier = 0.7;
-                                                    
-                                                    if (isHome) multiplier *= 1.1;
-                                                    
-                                                    return Math.max(0, basePoints * multiplier);
-                                                }}
-                                            />
-                                </div>
-
-                                        {/* Bench */}
-                                        <div>
-                                            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                                                <Users className="w-5 h-5 text-gray-500" />
-                                                Bench
-                                            </h3>
-                                            <InsightsPitchView
-                                                players={playgroundTeam
-                                                    .filter((p: any) => p.position > 11)
-                                                    .sort((a: any, b: any) => a.position - b.position)
-                                                    .map((pick: any) => getPlayer(pick.element))
-                                                    .filter((p: any) => p)}
-                                                teams={teams || []}
-                                                fixtures={fixtures || []}
-                                                currentEvent={playgroundGW || currentEvent?.id || 1}
-                                                onPlayerClick={(player) => setSelectedPlayer(player)}
-                                                showRanks={false}
-                                                compactLayout={true}
-                                                picksMap={new Map(playgroundTeam.map((pick: any) => [pick.element, pick]))}
-                                                getExpectedPoints={(player: any) => {
-                                                    const nextFixture = fixtures
-                                                        ?.filter((f: any) => {
-                                                            const isTeamInFixture = f.team_h === player.team || f.team_a === player.team;
-                                                            return isTeamInFixture && f.event >= (playgroundGW || currentEvent?.id || 1);
-                                                        })
-                                                        .sort((a: any, b: any) => a.event - b.event)[0];
-                                                    
-                                                    if (!nextFixture) return parseFloat(player.ep_next) || 0;
-                                                    
-                                                    const isHome = nextFixture.team_h === player.team;
-                                                    const difficulty = isHome ? nextFixture.team_h_difficulty : nextFixture.team_a_difficulty;
-                                                    const basePoints = parseFloat(player.ep_next) || parseFloat(player.form) || 0;
-                                                    
-                                                    let multiplier = 1.0;
-                                                    if (difficulty <= 2) multiplier = 1.2;
-                                                    else if (difficulty === 3) multiplier = 1.0;
-                                                    else if (difficulty === 4) multiplier = 0.85;
-                                                    else if (difficulty === 5) multiplier = 0.7;
-                                                    
-                                                    if (isHome) multiplier *= 1.1;
-                                                    
-                                                    return Math.max(0, basePoints * multiplier);
-                                                }}
-                                            />
-                                </div>
-
-                                        {/* Available Players Pool */}
-                                        <div>
-                                            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                                                <Plus className="w-5 h-5 text-green-500" />
-                                                Available Players
-                                            </h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto p-2">
-                                                {elements
-                                                    .filter((p: any) => !playgroundTeam.some((pick: any) => pick.element === p.id))
-                                                    .slice(0, 50)
-                                                    .map((player: any) => (
-                                                        <button
-                                                            key={player.id}
-                                                            onClick={() => {
-                                                                // Add player to bench
-                                                                const newPick = {
-                                                                    element: player.id,
-                                                                    position: 12 + playgroundTeam.filter((p: any) => p.position > 11).length,
-                                                                    is_captain: false,
-                                                                    is_vice_captain: false
-                                                                };
-                                                                setPlaygroundTeam([...playgroundTeam, newPick]);
-                                                            }}
-                                                            className="p-2 bg-card/50 border border-primary/20 rounded-lg hover:border-primary/40 hover:bg-primary/10 transition-all text-left"
-                                                        >
-                                                            <p className="text-xs font-bold truncate">{player.web_name}</p>
-                                                            <p className="text-[10px] text-muted-foreground">{getTeam(player.team)?.short_name}</p>
-                                                            <p className="text-[10px] text-primary mt-1">£{(player.now_cost / 10).toFixed(1)}m</p>
-                                                        </button>
-                                                    ))}
-                                    </div>
-                                    </div>
-                                    </>
-                                    )}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
                 </Tabs>
                     </div>
 
-            {/* Player Detail Modal */}
-            <PlayerDetailModal
-                player={selectedPlayer}
-                team={selectedPlayer ? teams?.find((t: any) => t.id === selectedPlayer.team) : null}
-                teams={teams || []}
-                fixtures={fixtures || []}
-                currentEvent={currentEvent?.id || 1}
-                onClose={() => setSelectedPlayer(null)}
-            />
+            {selectedPlayer && (
+                <PlayerDetailModal
+                    player={selectedPlayer}
+                    team={teams?.find((t: any) => t.id === selectedPlayer.team) ?? null}
+                    teams={teams || []}
+                    fixtures={fixtures || []}
+                    currentEvent={currentEvent?.id || 1}
+                    onClose={() => setSelectedPlayer(null)}
+                />
+            )}
 
         </div>
     );

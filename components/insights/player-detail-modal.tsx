@@ -4,6 +4,7 @@
  */
 
 import { X, TrendingUp, TrendingDown, Activity, Shield, Target, Zap, Award, AlertCircle, Newspaper, Heart, Clock, Users } from 'lucide-react';
+import { PlayerAvatar } from '@/components/player-avatar';
 import { Badge } from '@/components/ui/badge';
 import { FixtureDifficulty } from './fixture-difficulty';
 import { FixtureDetailView } from './fixture-detail-view';
@@ -22,10 +23,6 @@ interface PlayerDetailModalProps {
 }
 
 
-function getPlayerPhotoUrl(player: any): string {
-    return `https://resources.premierleague.com/premierleague/photos/players/250x250/p${player.code}.png`;
-}
-
 function getTeamBadgeUrl(teamCode: number): string[] {
     return [
         `https://resources.premierleague.com/premierleague/badges/70/t${teamCode}.png`,
@@ -42,8 +39,30 @@ export function PlayerDetailModal({
     onClose
 }: PlayerDetailModalProps) {
 
-    // Early return if no player (after hooks)
-    if (!player) return null;
+    const [loadRisk, setLoadRisk] = useState<any>(null);
+
+    useEffect(() => {
+        if (!player?.id) return;
+        let mounted = true;
+        const run = async () => {
+            try {
+                const res = await fetch(`/api/enriched/player/${player.id}`, { cache: 'no-store' as any });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (mounted) {
+                    setLoadRisk(data?.facts?.loadRisk || null);
+                }
+            } catch {
+                // ignore
+            }
+        };
+        run();
+        return () => { mounted = false; };
+    }, [player?.id]);
+
+    if (!player) {
+        return null;
+    }
 
     const form = parseFloat(player.form) || 0;
     const ownership = parseFloat(player.selected_by_percent) || 0;
@@ -83,7 +102,6 @@ export function PlayerDetailModal({
     const badgeUrls = team ? getTeamBadgeUrl(team.code) : [];
 
     return (
-        <AnimatePresence>
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -123,21 +141,12 @@ export function PlayerDetailModal({
                             <div className="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6">
                                 {/* Player Photo */}
                                 <div className="relative flex-shrink-0">
-                                    <div className="w-24 h-24 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-gradient-to-br from-white to-gray-100">
-                                        <img
-                                            src={getPlayerPhotoUrl(player)}
-                                            alt={player.web_name}
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                const img = e.currentTarget;
-                                                img.style.display = 'none';
-                                                const div = document.createElement('div');
-                                                div.className = 'w-full h-full flex items-center justify-center text-5xl font-bold text-orange-800 bg-white';
-                                                div.textContent = player.web_name[0];
-                                                img.parentElement!.appendChild(div);
-                                            }}
-                                        />
-                                    </div>
+                                    <PlayerAvatar
+                                        player={{ ...player, id: player.id }}
+                                        teamBadgeCode={team?.code}
+                                        size="xl"
+                                        className="border-4 border-white shadow-2xl bg-gradient-to-br from-white to-gray-100 !border-white"
+                                    />
                                     {/* Team Badge */}
                                     {team && badgeUrls.length > 0 && (
                                         <div className={`absolute -bottom-1 -right-1 md:-bottom-2 md:-right-2 w-12 h-12 md:w-16 md:h-16 ${colors.accent} rounded-full flex items-center justify-center shadow-xl border-2 md:border-4 border-white/70 overflow-hidden bg-white`}>
@@ -316,7 +325,7 @@ export function PlayerDetailModal({
                             {/* Primary Metrics */}
                             <div>
                                 <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-gray-300">
-                                    <Activity className="w-4 h-4 md:w-5 md:h-5 text-orange-600" />
+                                    <Activity className="w-4 h-4 md:w-5 md:h-5 text-caution" />
                                     Primary Metrics
                                 </h3>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
@@ -334,7 +343,7 @@ export function PlayerDetailModal({
                             {/* Performance Stats */}
                             <div>
                                 <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-gray-300">
-                                    <Target className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
+                                    <Target className="w-4 h-4 md:w-5 md:h-5 text-positive" />
                                     Performance Stats
                                 </h3>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
@@ -354,7 +363,7 @@ export function PlayerDetailModal({
                             {/* ICT Index Breakdown */}
                             <div>
                                 <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-gray-300">
-                                    <Award className="w-4 h-4 md:w-5 md:h-5 text-orange-600" />
+                                    <Award className="w-4 h-4 md:w-5 md:h-5 text-caution" />
                                     ICT Index Breakdown
                                 </h3>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
@@ -386,7 +395,7 @@ export function PlayerDetailModal({
                             {/* Price & Transfers */}
                             <div>
                                 <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-gray-300">
-                                    <Users className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
+                                    <Users className="w-4 h-4 md:w-5 md:h-5 text-info" />
                                     Price & Transfers
                                 </h3>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
@@ -410,7 +419,7 @@ export function PlayerDetailModal({
                             {/* Fixtures */}
                             <div>
                                 <h3 className="text-base md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-gray-900 bg-gray-100 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-gray-300">
-                                    <Clock className="w-4 h-4 md:w-5 md:h-5 text-orange-600" />
+                                    <Clock className="w-4 h-4 md:w-5 md:h-5 text-caution" />
                                     <span className="text-xs md:text-base">Next 10 Fixtures</span>
                                 </h3>
                                 <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 shadow-sm">
@@ -424,10 +433,47 @@ export function PlayerDetailModal({
                                 </div>
                             </div>
 
+                            {/* Load Risk - Fixture Congestion */}
+                            <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 shadow-sm">
+                                <div className="flex items-center justify-between gap-3 mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <Activity className="w-5 h-5 text-purple-600" />
+                                        <p className="font-bold text-gray-900">Load risk</p>
+                                    </div>
+                                    <Badge
+                                        variant="outline"
+                                        className={
+                                            loadRisk?.level === 'high'
+                                                ? 'bg-red-100 text-red-800 border-red-300'
+                                                : loadRisk?.level === 'medium'
+                                                    ? 'bg-orange-100 text-orange-800 border-orange-300'
+                                                    : 'bg-green-100 text-green-800 border-green-300'
+                                        }
+                                    >
+                                        {(loadRisk?.level || 'low').toString().toUpperCase()}
+                                    </Badge>
+                                </div>
+
+                                {loadRisk ? (
+                                    <>
+                                        <p className="text-xs text-gray-700 font-semibold">
+                                            {loadRisk.reason}
+                                        </p>
+                                        <p className="text-[10px] text-gray-500 mt-1">
+                                            Source: {loadRisk?.provenance?.provider || 'football-data.org'} · Window: {loadRisk.windowDays}d · Team ID: {loadRisk?.provenance?.teamId}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="text-xs text-gray-500">
+                                        Load risk unavailable (configure `FOOTBALL_DATA_API_KEY` to enable cross-competition schedule ingestion).
+                                    </p>
+                                )}
+                            </div>
+
                             {/* Health Meter - Colored Box Display */}
                             <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 shadow-sm">
                                 <div className="flex items-center gap-2 mb-3">
-                                    <Heart className={`w-5 h-5 ${(player.chance_of_playing_next_round || 100) >= 75 ? 'text-green-600' : (player.chance_of_playing_next_round || 100) >= 50 ? 'text-orange-600' : 'text-red-600'}`} />
+                                    <Heart className={`w-5 h-5 ${(player.chance_of_playing_next_round || 100) >= 75 ? 'text-positive' : (player.chance_of_playing_next_round || 100) >= 50 ? 'text-caution' : 'text-negative'}`} />
                                     <p className="font-bold text-gray-900">Fitness Status</p>
                                 </div>
 
@@ -537,7 +583,7 @@ export function PlayerDetailModal({
 
                                 {player.news && (
                                     <div className="bg-orange-100 border-2 border-orange-400 rounded-lg p-3 flex items-start gap-2 shadow-sm">
-                                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-orange-600" />
+                                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-caution" />
                                         <p className="text-xs font-semibold text-gray-900">{player.news}</p>
                                     </div>
                                 )}
@@ -668,7 +714,7 @@ export function PlayerDetailModal({
                             {/* News Ticker */}
                             <div>
                                 <h3 className="text-lg font-bold mb-3 flex items-center gap-2 text-gray-900 bg-gray-100 px-3 py-2 rounded-lg border border-gray-300">
-                                    <Newspaper className="w-5 h-5 text-orange-600" />
+                                    <Newspaper className="w-5 h-5 text-caution" />
                                     News & Health Updates
                                 </h3>
                                 <NewsTicker player={player} team={team} />
@@ -685,7 +731,6 @@ export function PlayerDetailModal({
                     </motion.div>
                 </div>
             </motion.div>
-        </AnimatePresence>
     );
 }
 

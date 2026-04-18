@@ -2,7 +2,9 @@
 
 import { X, TrendingUp, TrendingDown, Target, Shield, Zap, Award, Activity, Trophy, Eye, ArrowRight, Cross, Ban } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getPlayerPhotoUrls, getTeamBadgeUrl, getPlayerInitials } from '@/lib/player-photo-utils';
+import { getPlayerPhotoUrls, getPlayerInitials, PLAYER_HEADSHOT_IMG_CLASSNAME } from '@/lib/player-photo-utils';
+import { cn } from '@/lib/utils';
+import { TeamBadgeImage } from '@/components/team-badge-image';
 import { useState } from 'react';
 
 interface PlayerComparisonModalProps {
@@ -33,13 +35,15 @@ export function PlayerComparisonModal({
         code: player1.code,
         photo: player1.photo,
         web_name: player1.web_name,
-        team: player1.team
+        team: player1.team,
+        elementId: player1.id,
     });
     const photo2Urls = getPlayerPhotoUrls({
         code: player2.code,
         photo: player2.photo,
         web_name: player2.web_name,
-        team: player2.team
+        team: player2.team,
+        elementId: player2.id,
     });
 
     // Team colors with text color support
@@ -355,7 +359,7 @@ export function PlayerComparisonModal({
                                                     <img
                                                         src={photo1Urls[photo1Index] || photo1Urls[0]}
                                                         alt={player1.web_name}
-                                                        className="w-full h-full object-cover"
+                                                        className={cn('w-full h-full', PLAYER_HEADSHOT_IMG_CLASSNAME)}
                                                         onError={() => {
                                                             if (photo1Index < photo1Urls.length - 1) {
                                                                 setPhoto1Index(photo1Index + 1);
@@ -394,18 +398,10 @@ export function PlayerComparisonModal({
                                             
                                             {team1 && (
                                                 <div className={`absolute -bottom-2 -right-2 w-12 h-12 ${colors1.accent} rounded-full flex items-center justify-center shadow-xl border-4 border-white overflow-hidden bg-white z-40`}>
-                                                    <img
-                                                        src={getTeamBadgeUrl(team1.code)}
+                                                    <TeamBadgeImage
+                                                        teamCode={team1.code}
                                                         alt={team1.short_name}
                                                         className="w-10 h-10 object-contain"
-                                                        onError={(e) => {
-                                                            const img = e.currentTarget;
-                                                            img.style.display = 'none';
-                                                            const span = document.createElement('span');
-                                                            span.className = 'font-black text-xs text-gray-800';
-                                                            span.textContent = team1?.short_name?.substring(0, 3).toUpperCase() || '';
-                                                            img.parentElement!.appendChild(span);
-                                                        }}
                                                     />
                                                 </div>
                                             )}
@@ -448,7 +444,7 @@ export function PlayerComparisonModal({
                                                     <img
                                                         src={photo2Urls[photo2Index] || photo2Urls[0]}
                                                         alt={player2.web_name}
-                                                        className="w-full h-full object-cover"
+                                                        className={cn('w-full h-full', PLAYER_HEADSHOT_IMG_CLASSNAME)}
                                                         onError={() => {
                                                             if (photo2Index < photo2Urls.length - 1) {
                                                                 setPhoto2Index(photo2Index + 1);
@@ -487,18 +483,10 @@ export function PlayerComparisonModal({
                                             
                                             {team2 && (
                                                 <div className={`absolute -bottom-2 -right-2 w-12 h-12 ${colors2.accent} rounded-full flex items-center justify-center shadow-xl border-4 border-white overflow-hidden bg-white z-40`}>
-                                                    <img
-                                                        src={getTeamBadgeUrl(team2.code)}
+                                                    <TeamBadgeImage
+                                                        teamCode={team2.code}
                                                         alt={team2.short_name}
                                                         className="w-10 h-10 object-contain"
-                                                        onError={(e) => {
-                                                            const img = e.currentTarget;
-                                                            img.style.display = 'none';
-                                                            const span = document.createElement('span');
-                                                            span.className = 'font-black text-xs text-gray-800';
-                                                            span.textContent = team2?.short_name?.substring(0, 3).toUpperCase() || '';
-                                                            img.parentElement!.appendChild(span);
-                                                        }}
                                                     />
                                                 </div>
                                             )}
@@ -532,7 +520,7 @@ export function PlayerComparisonModal({
                                     <h3 className="text-xl font-black text-gray-900 mb-2">Key Metrics Comparison</h3>
                                     <div className="flex items-center justify-center gap-4 text-sm">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded bg-green-500"></div>
+                                            <div className="w-3 h-3 rounded bg-positive"></div>
                                             <span className="text-gray-700 font-semibold">Better</span>
                                         </div>
                                         <div className="flex items-center gap-2">

@@ -1,15 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Lexend } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const lexend = Lexend({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: "--font-lexend",
 });
 
 export const metadata: Metadata = {
@@ -38,7 +33,7 @@ export const viewport: Viewport = {
 };
 
 import { Toaster } from "@/components/ui/sonner";
-import { BottomNav } from "@/components/bottom-nav";
+import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import Providers from "@/components/providers";
 
@@ -48,14 +43,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="light" suppressHydrationWarning>
+      <head>
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${lexend.variable} font-body antialiased`}
+        suppressHydrationWarning
       >
         <Providers>
-          <AppHeader />
-          {children}
-          <BottomNav />
+          <div className="flex min-h-[100dvh] w-full items-stretch bg-background">
+            <AppSidebar />
+            <div className="flex min-h-[100dvh] min-w-0 flex-1 flex-col border-l border-border">
+              <AppHeader />
+              <main className="flex-1">
+                {children}
+              </main>
+            </div>
+          </div>
           <Toaster />
         </Providers>
       </body>

@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
         response.cookies.set("fpl_session_id", "", {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
+            sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
             path: "/",
             maxAge: 0, // Expire immediately
         });

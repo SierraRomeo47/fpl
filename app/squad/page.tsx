@@ -10,16 +10,10 @@ import { InsightsPitchView } from "@/components/insights/insights-pitch-view";
 import { PlayerDetailModal } from "@/components/insights/player-detail-modal";
 import { UpgradeSplitCard } from "@/components/insights/upgrade-split-card";
 import { PlayerComparisonModal } from "@/components/insights/player-comparison-modal";
+import { AnimatePresence } from 'framer-motion';
+import { PlayerAvatar } from '@/components/player-avatar';
 
 // ============ UTILITY FUNCTIONS (Module Level) ============
-function getPlayerPhotoUrl(player: any): string[] {
-    return [
-        `https://resources.premierleague.com/premierleague/photos/players/250x250/p${player.code}.png`,
-        `https://resources.premierleague.com/premierleague/photos/players/250x250/p${player.photo}.png`,
-        `https://resources.premierleague.com/premierleague/photos/players/250x250/p${player.id}.png`,
-    ];
-}
-
 function getTeamBadgeUrl(teamCode: number): string[] {
     return [
         `https://resources.premierleague.com/premierleague/badges/70/t${teamCode}.png`,
@@ -52,7 +46,9 @@ export default function SquadPage() {
                 let res: Response | null = null;
                 for (let i = 0; i < 3; i++) {
                     try {
-                        res = await fetch('/api/session');
+                        res = await fetch('/api/session', {
+                            credentials: 'include'
+                        });
                         if (res.ok || res.status === 401 || i === 2) break;
                         await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
                     } catch (error) {
@@ -75,7 +71,9 @@ export default function SquadPage() {
 
                 // Get full session data
                 const sessionCheck = await res.json();
-                const createRes = await fetch('/api/session/create');
+                const createRes = await fetch('/api/session/create', {
+                    credentials: 'include'
+                });
                 if (createRes.ok) {
                     const sessionData = await createRes.json();
                     if (mounted) {
@@ -141,6 +139,11 @@ export default function SquadPage() {
     const getPlayer = (elementId: number) => elements.find((p: any) => p.id === elementId);
     const getTeam = (teamId: number) => teams.find((t: any) => t.id === teamId);
 
+    const freeTransfersLeft =
+        myTeam?.transfers != null
+            ? Math.max(0, (myTeam.transfers.limit ?? 0) - (myTeam.transfers.made ?? 0))
+            : null;
+
     // Check if player is unavailable (injured, suspended, or AFCON)
     const isPlayerUnavailable = (player: any): boolean => {
         // Check status - only 'a' means available
@@ -200,45 +203,58 @@ export default function SquadPage() {
         return 4;
     };
 
-    // Calculate overall score across multiple metrics
+    // Calculate overall score based on Joshua Bull's strategy: Form (70%) > Fixtures (20%) > Value (10%)
     const calculateOverallScore = (player: any): number => {
         const form = parseFloat(player.form) || 0;
-        const totalPoints = player.total_points || 0;
-        const pointsPerGame = parseFloat(player.points_per_game) || 0;
-        const expectedPoints = parseFloat(player.ep_next) || 0;
-        const ictIndex = parseFloat(player.ict_index) || 0;
         const value = player.now_cost > 0 ? (player.total_points / (player.now_cost / 10)) : 0;
         const chanceOfPlaying = player.chance_of_playing_next_round || 100;
         
-        // Weighted scoring system
+        // Calculate fixture difficulty for next 3 fixtures
+        let fixtureScore = 50; // Default neutral score
+        if (fixtures && currentEventId) {
+            const nextFixtures = fixtures
+                .filter((f: any) => {
+                    const isTeamInFixture = f.team_h === player.team || f.team_a === player.team;
+                    const isFuture = f.event > currentEventId;
+                    const isNotFinished = !f.finished;
+                    return isTeamInFixture && isFuture && isNotFinished;
+                })
+                .sort((a: any, b: any) => a.event - b.event)
+                .slice(0, 3);
+            
+            if (nextFixtures.length > 0) {
+                const avgFDR = nextFixtures.reduce((sum: number, f: any) => {
+                    const isHome = f.team_h === player.team;
+                    const difficulty = isHome ? f.team_h_difficulty : f.team_a_difficulty;
+                    return sum + difficulty;
+                }, 0) / nextFixtures.length;
+                
+                // Convert FDR to score: FDR 1 = 100, FDR 5 = 0
+                // Lower FDR = better fixtures = higher score
+                fixtureScore = ((6 - avgFDR) / 5) * 100;
+            }
+        }
+        
+        // Joshua Bull's strategy weights
         const weights = {
-            form: 0.25,           // Recent form is very important
-            expectedPoints: 0.20,  // Future potential
-            pointsPerGame: 0.15,   // Consistency
-            totalPoints: 0.15,     // Season performance
-            value: 0.15,           // Points per million
-            ictIndex: 0.10,        // Advanced metrics
+            form: 0.70,      // Form is primary factor (70%)
+            fixtures: 0.20,  // Fixture difficulty (20%)
+            value: 0.10,     // Value/points per million (10%)
         };
         
         // Normalize scores (assuming max values for scaling)
-        const normalizedForm = Math.min(form / 10, 1) * 100;
-        const normalizedExpected = Math.min(expectedPoints / 10, 1) * 100;
-        const normalizedPPG = Math.min(pointsPerGame / 8, 1) * 100;
-        const normalizedTotal = Math.min(totalPoints / 200, 1) * 100;
-        const normalizedValue = Math.min(value / 20, 1) * 100;
-        const normalizedICT = Math.min(ictIndex / 100, 1) * 100;
+        const normalizedForm = Math.min(form / 10, 1) * 100; // Form typically 0-10
+        const normalizedFixtures = Math.max(0, Math.min(fixtureScore, 100)); // Already 0-100
+        const normalizedValue = Math.min(value / 20, 1) * 100; // Value typically 0-20 pts/£m
         
-        // Calculate weighted score
+        // Calculate weighted score based on Joshua Bull's strategy
         let score = 
             (normalizedForm * weights.form) +
-            (normalizedExpected * weights.expectedPoints) +
-            (normalizedPPG * weights.pointsPerGame) +
-            (normalizedTotal * weights.totalPoints) +
-            (normalizedValue * weights.value) +
-            (normalizedICT * weights.ictIndex);
+            (normalizedFixtures * weights.fixtures) +
+            (normalizedValue * weights.value);
         
-        // Bonus for high availability
-        const availabilityBonus = (chanceOfPlaying / 100) * 5;
+        // Small bonus for high availability (but doesn't override strategy)
+        const availabilityBonus = (chanceOfPlaying / 100) * 2;
         score += availabilityBonus;
         
         return score;
@@ -341,7 +357,6 @@ export default function SquadPage() {
 
         const positionName = ['', 'GKP', 'DEF', 'MID', 'FWD'][player.element_type];
         const jerseyNumber = getJerseyNumber(player);
-        const playerPhotoUrls = getPlayerPhotoUrl(player);
         const teamBadgeUrls = getTeamBadgeUrl(team?.code);
 
         // AUTHENTIC PL Team Colors
@@ -394,26 +409,12 @@ export default function SquadPage() {
                             </div>
 
                             {/* Large Player Photo */}
-                            <div className="relative z-10 w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-gradient-to-br from-white to-gray-100">
-                                <img
-                                    src={playerPhotoUrls[0]}
-                                    alt={player.web_name}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                        const img = e.currentTarget;
-                                        const currentSrc = img.src;
-                                        const currentIndex = playerPhotoUrls.findIndex(url => currentSrc === url);
-
-                                        if (currentIndex < playerPhotoUrls.length - 1) {
-                                            img.src = playerPhotoUrls[currentIndex + 1];
-                                        } else {
-                                            img.style.display = 'none';
-                                            const div = document.createElement('div');
-                                            div.className = 'w-full h-full flex items-center justify-center text-4xl font-bold text-primary bg-white';
-                                            div.textContent = player.web_name[0];
-                                            img.parentElement!.appendChild(div);
-                                        }
-                                    }}
+                            <div className="relative z-10">
+                                <PlayerAvatar
+                                    player={{ ...player, id: player.id }}
+                                    teamBadgeCode={team?.code}
+                                    size="lg"
+                                    className="border-4 border-white shadow-2xl bg-gradient-to-br from-white to-gray-100 !border-white"
                                 />
                             </div>
 
@@ -508,27 +509,14 @@ export default function SquadPage() {
 
     return (
         <>
-            <div className="min-h-screen bg-background pb-24 pt-16">
-                <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-5 md:space-y-6">
-                    {/* Hero Section - Match Dashboard Style */}
-                    <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card border border-border p-4 md:p-8">
-                        <div className="relative z-10">
-                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                                <div className="flex items-center gap-2 md:gap-3">
-                                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
-                                        <Trophy className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                                    </div>
-                                    <div>
-                                        <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground">
-                                            Your Squad
-                                        </h1>
-                                        <p className="text-sm md:text-base text-muted-foreground">Gameweek {currentEventId}</p>
-                                    </div>
-                                </div>
-                                <Badge variant="default" className="text-xs md:text-sm px-3 md:px-4 py-1.5 md:py-2 w-full md:w-auto justify-center">
-                                    {positionGroups.DEF.length}-{positionGroups.MID.length}-{positionGroups.FWD.length}
-                                </Badge>
-                            </div>
+            <div className="min-h-screen bg-surface pb-24 pt-6">
+                <div className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+                    {/* Header Section */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                        <div>
+                            <h1 className="text-3xl md:text-4xl font-black font-headline tracking-tight text-on-surface">Pick Team</h1>
+                            <p className="text-on-surface-variant mt-1 font-medium">Gameweek {currentEvent?.id || currentEventId} · 1 FT available</p>
+                        </div>
                             
                             {/* Deadline Box - Moved here below header */}
                             {(() => {
@@ -726,55 +714,38 @@ export default function SquadPage() {
                                     };
                                     
                                     return (
-                                        <div className="mt-4 w-full">
-                                            <div className="text-center md:text-left bg-card/50 rounded-lg p-3 md:p-4 border border-primary/20">
-                                                <p className="text-xs md:text-sm text-muted-foreground mb-2 font-semibold uppercase tracking-wide">Next Deadline</p>
-                                                
-                                                {/* Date and Time - Larger and clearer */}
-                                                <div className="mb-3">
-                                                    <p className="text-sm md:text-base font-bold text-foreground leading-tight mb-1">
-                                                        {formattedDeadlineLocal}
-                                                    </p>
-                                                    {/* GMT offset and UTC time in a row */}
-                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                        <p className="text-[10px] md:text-xs text-muted-foreground">
-                                                            {gmtOffset}
-                                                        </p>
-                                                        {userTimezoneName !== 'UTC' && (
-                                                            <>
-                                                                <span className="text-[10px] md:text-xs text-muted-foreground">•</span>
-                                                                <p className="text-[10px] md:text-xs text-muted-foreground">
-                                                                    {formattedDeadlineUTC} UTC
-                                                                </p>
-                                                            </>
-                                                        )}
-                                                    </div>
+                                        <div className="w-full md:w-auto">
+                                            <div className="bg-primary/5 rounded-2xl p-4 border-2 border-primary/20 flex items-center gap-4 shadow-sm">
+                                                <div className="w-12 h-12 rounded-full bg-surface border-2 border-primary/30 flex items-center justify-center text-primary shrink-0">
+                                                    <svg xmlns="http://www.w-w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                                                 </div>
-                                                
-                                                {/* Live Countdown Timer - Prominent */}
-                                                {timeRemaining > 0 ? (
-                                                    <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-lg p-2 md:p-3 border-2 border-orange-500/40">
-                                                        <p className="text-[10px] md:text-xs text-muted-foreground mb-1 font-semibold uppercase">Time Remaining</p>
-                                                        <p className="text-lg md:text-2xl font-black text-orange-400 font-mono tracking-wider">
+                                                <div>
+                                                    <p className="text-xs font-bold text-primary tracking-wider uppercase font-headline">Next Deadline</p>
+                                                    {timeRemaining > 0 ? (
+                                                        <p className="text-xl md:text-2xl font-black text-on-surface tracking-tight mt-0.5">
                                                             {formatCountdown()}
                                                         </p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="bg-red-500/20 rounded-lg p-2 md:p-3 border-2 border-red-500/40">
-                                                        <p className="text-sm md:text-base font-bold text-red-400">Deadline Passed</p>
-                                                    </div>
-                                                )}
+                                                    ) : (
+                                                        <p className="text-base font-bold text-error">Deadline Passed</p>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     );
                                 })()}
+                    </div>
                             
                             {/* Action Buttons - Moved here underneath header */}
-                            <div className="flex items-center gap-3 mt-4">
+                            <div className="flex flex-wrap items-center gap-3 mt-4">
                                 <button
+                                    type="button"
+                                    title={
+                                        freeTransfersLeft !== null
+                                            ? `${freeTransfersLeft} free transfer${freeTransfersLeft === 1 ? '' : 's'} — scroll to upgrades`
+                                            : 'Scroll to upgrade suggestions'
+                                    }
                                     onClick={() => {
                                         setShowUpgrades(true);
-                                        // Scroll to upgrade section after a brief delay to ensure it's rendered
                                         setTimeout(() => {
                                             const upgradeSection = document.getElementById('upgrade-recommendations');
                                             if (upgradeSection) {
@@ -782,10 +753,15 @@ export default function SquadPage() {
                                             }
                                         }, 100);
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg hover:from-orange-600 hover:to-orange-700 transition-all"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold bg-[#1c1b1b] text-white border-2 border-[#1c1b1b] shadow-[4px_4px_0px_0px_rgba(255,107,0,1)] transition-all hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_0px_rgba(255,107,0,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                                 >
-                                    <TrendingUp className="w-4 h-4" />
-                                    <span>Improve</span>
+                                    <TrendingUp className="w-4 h-4 shrink-0 text-tertiary" aria-hidden />
+                                    <span className="whitespace-nowrap">Improve Team</span>
+                                    {freeTransfersLeft !== null && (
+                                        <span className="text-xs font-semibold text-muted-foreground tabular-nums hidden sm:inline">
+                                            · {freeTransfersLeft} FT
+                                        </span>
+                                    )}
                                 </button>
                                 <button
                                     onClick={() => {
@@ -799,118 +775,49 @@ export default function SquadPage() {
                                             }
                                         }, 100);
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold bg-surface-container-lowest text-on-surface border-2 border-outline-variant hover:bg-surface-container transition-all"
                                 >
                                     <GitCompare className="w-4 h-4" />
-                                    <span>Compare Team vs Database</span>
+                                    <span>Compare vs Database</span>
                                 </button>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Football Pitch with Formation using InsightsPitchView */}
-                    <InsightsPitchView
-                        players={starting11.map((pick: any) => getPlayer(pick.element)).filter((p: any) => p)}
-                        teams={teams || []}
-                        fixtures={fixtures || []}
-                        currentEvent={currentEvent?.id || currentEventId || 1}
-                        onPlayerClick={(player) => setSelectedPlayer(player)}
-                        showRanks={false}
-                        picksMap={picksMap}
-                        getExpectedPoints={getExpectedPoints}
-                        isSquadView={true}
-                    />
+                    {/* Pitch and Bench Container */}
+                    <div className="bg-[#fcfaf7] rounded-3xl p-3 md:p-5 shadow-sm border border-gray-200">
+                        {/* Football Pitch with Formation using InsightsPitchView */}
+                        <InsightsPitchView
+                            players={starting11.map((pick: any) => getPlayer(pick.element)).filter((p: any) => p)}
+                            teams={teams || []}
+                            fixtures={fixtures || []}
+                            currentEvent={currentEvent?.id || currentEventId || 1}
+                            onPlayerClick={(player) => setSelectedPlayer(player)}
+                            showRanks={false}
+                            picksMap={picksMap}
+                            getExpectedPoints={getExpectedPoints}
+                            isSquadView={true}
+                        />
 
-                    {/* Substitutes Bench with Realistic Stadium Stand Design */}
-                    {bench.length > 0 && (
-                        <div className="relative overflow-hidden rounded-2xl border-2 border-orange-500/40 shadow-xl">
-                            {/* Stadium Bench Background */}
-                            <div className="relative bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 p-4">
-                                {/* Stadium Back Wall / Roof Shadow */}
-                                <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-slate-900/80 via-slate-800/60 to-transparent"></div>
-
-                                {/* Bench Backrest Support */}
-                                <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-slate-900/90 to-slate-800/70">
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-slate-600/50 to-transparent"></div>
-                                </div>
-
-                                {/* Bench Seating Area - Wooden Planks (Reduced Height) */}
-                                <div className="relative mt-8 mb-2" style={{ minHeight: '120px' }}>
-                                    <div className="absolute inset-0 bg-gradient-to-br from-amber-800/90 via-amber-700/85 to-amber-900/90 rounded-lg shadow-inner"></div>
-                                    <div className="absolute inset-0 flex flex-col gap-0.5 p-1">
-                                        {Array.from({ length: 5 }).map((_, i) => (
-                                            <div
-                                                key={i}
-                                                className="flex-1 bg-gradient-to-r from-amber-700/80 via-amber-600/90 to-amber-700/80 rounded-sm shadow-sm border-t border-amber-500/30 border-b border-amber-900/40"
-                                                style={{
-                                                    backgroundImage: `
-                                                        repeating-linear-gradient(
-                                                            90deg,
-                                                            rgba(180, 83, 9, 0.4) 0px,
-                                                            rgba(180, 83, 9, 0.4) 1px,
-                                                            rgba(154, 52, 18, 0.3) 1px,
-                                                            rgba(154, 52, 18, 0.3) 3px
-                                                        )
-                                                    `,
-                                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3), inset 0 -1px 1px rgba(255,255,255,0.1)'
-                                                }}
-                                            ></div>
-                                        ))}
-                                    </div>
-                                    <div className="absolute inset-0" style={{
-                                        backgroundImage: `
-                                            repeating-linear-gradient(
-                                                0deg,
-                                                transparent 0px,
-                                                transparent 23px,
-                                                rgba(0, 0, 0, 0.2) 23px,
-                                                rgba(0, 0, 0, 0.2) 24px,
-                                                transparent 24px,
-                                                transparent 47px
-                                            )
-                                        `,
-                                        backgroundSize: '100% 47px'
-                                    }}></div>
-                                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500/40 via-amber-400/50 to-amber-500/40"></div>
-                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-t from-black/40 to-transparent rounded-b-lg"></div>
-                                </div>
-
-                                {/* Floor/Base Platform */}
-                                <div className="relative h-2 bg-gradient-to-b from-slate-700/80 to-slate-800/90 rounded-b-lg shadow-inner">
-                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-600/20 to-transparent"></div>
-                                    <div className="absolute -top-1 left-0 right-0 h-1 bg-gradient-to-b from-slate-900/60 to-transparent"></div>
-                                </div>
-
-                                {/* Ambient Lighting */}
-                                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/20 pointer-events-none"></div>
-                                <div className="absolute top-8 left-0 right-0 h-24 bg-gradient-to-b from-orange-500/5 to-transparent pointer-events-none"></div>
-
-                                {/* Title Section */}
-                                <div className="relative z-20 mb-4 text-center">
-                                    <h2 className="text-xl font-black text-white drop-shadow-lg tracking-wide">Substitutes Bench</h2>
-                                    <p className="text-xs text-amber-100/90 font-semibold drop-shadow-md">Reserves & Substitutes</p>
-                                </div>
-
-                                {/* Players Cards Grid - Elevated on Bench */}
-                                <div className="relative z-20 -mt-6 mb-2">
-                                    <div className="bg-gradient-to-b from-transparent via-amber-800/5 to-transparent rounded-lg p-1">
-                                        <InsightsPitchView
-                                            players={bench.map((pick: any) => getPlayer(pick.element)).filter((p: any) => p)}
-                                            teams={teams || []}
-                                            fixtures={fixtures || []}
-                                            currentEvent={currentEvent?.id || currentEventId || 1}
-                                            onPlayerClick={(player) => setSelectedPlayer(player)}
-                                            showRanks={false}
-                                            compactLayout={true}
-                                            picksMap={picksMap}
-                                            getExpectedPoints={getExpectedPoints}
-                                            isSquadView={true}
-                                        />
-                                    </div>
+                        {/* Substitutes Bench */}
+                        {bench.length > 0 && (
+                            <div className="mt-4 pt-4">
+                                <h3 className="text-gray-500 font-bold text-xs uppercase tracking-widest mb-3 pl-2">BENCH</h3>
+                                <div className="bg-white rounded-xl p-2 md:p-4 border shadow-sm">
+                                    <InsightsPitchView
+                                        players={bench.map((pick: any) => getPlayer(pick.element)).filter((p: any) => p)}
+                                        teams={teams || []}
+                                        fixtures={fixtures || []}
+                                        currentEvent={currentEvent?.id || currentEventId || 1}
+                                        onPlayerClick={(player) => setSelectedPlayer(player)}
+                                        showRanks={false}
+                                        compactLayout={true}
+                                        picksMap={picksMap}
+                                        getExpectedPoints={getExpectedPoints}
+                                        isSquadView={true}
+                                    />
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
 
                     {/* Upgrade Source Selector - Only show when upgrades are visible */}
                     {showUpgrades && (
@@ -920,7 +827,7 @@ export default function SquadPage() {
                                 <select
                                     value={upgradeSource}
                                     onChange={(e) => setUpgradeSource(e.target.value)}
-                                    className="appearance-none bg-card border border-primary/30 rounded-lg px-4 py-2 pr-10 text-sm font-medium cursor-pointer hover:border-primary/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                                    className="appearance-none bg-card border border-primary/30 rounded-lg px-4 py-2 pr-10 text-sm font-medium cursor-pointer hover:border-primary/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
                                 >
                                     <optgroup label="Analysis">
                                         <option value="overall">Overall (Multi-Metric Analysis)</option>
@@ -1017,7 +924,7 @@ export default function SquadPage() {
                                         <p className="text-sm text-muted-foreground mb-4">
                                             {upgradeSource === 'overall' ? (
                                                 <>
-                                                    <span className="font-semibold">Overall Analysis:</span> Multi-metric evaluation across Form, Expected Points, Total Points, Value, ICT Index, and Points per Game. Unavailable players (injured, suspended, or on international duty like AFCON) are automatically excluded.
+                                                    <span className="font-semibold">Overall Analysis:</span> Based on Joshua Bull&apos;s strategy: Form (70%) &gt; Fixtures (20%) &gt; Value (10%). Evaluates player form, next 3 fixture difficulty ratings, and points per million value. Unavailable players (injured, suspended, or on international duty like AFCON) are automatically excluded.
                                                 </>
                                             ) : (
                                                 <>
@@ -1103,8 +1010,8 @@ export default function SquadPage() {
                                                                 {/* Cost Badge */}
                                                                 <div className={`absolute top-2 right-2 z-10 px-2 py-1 rounded-md text-xs font-bold ${
                                                                     isAffordable 
-                                                                        ? 'bg-green-500/90 text-white' 
-                                                                        : 'bg-red-500/90 text-white'
+                                                                        ? 'bg-positive text-primary-foreground' 
+                                                                        : 'bg-destructive text-destructive-foreground'
                                                                 }`}>
                                                                     {costDifference >= 0 ? '+' : ''}£{costDifference.toFixed(1)}m
                                                                     {!isAffordable && (
@@ -1144,7 +1051,7 @@ export default function SquadPage() {
                                             placeholder="Search by name..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full pl-10 pr-10 py-2 bg-card border border-primary/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                                            className="w-full pl-10 pr-10 py-2 bg-card border border-primary/30 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                                         />
                                         {searchQuery && (
                                             <button
@@ -1161,7 +1068,7 @@ export default function SquadPage() {
                                         <select
                                             value={filterTeam || ''}
                                             onChange={(e) => setFilterTeam(e.target.value ? parseInt(e.target.value) : null)}
-                                            className="w-full appearance-none bg-card border border-primary/30 rounded-lg px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                                            className="w-full appearance-none bg-card border border-primary/30 rounded-lg px-4 py-2 pr-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                                         >
                                             <option value="">All Teams</option>
                                             {teams?.map((team: any) => (
@@ -1176,7 +1083,7 @@ export default function SquadPage() {
                                         <select
                                             value={filterMaxPrice || ''}
                                             onChange={(e) => setFilterMaxPrice(e.target.value ? parseFloat(e.target.value) : null)}
-                                            className="w-full appearance-none bg-card border border-primary/30 rounded-lg px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                                            className="w-full appearance-none bg-card border border-primary/30 rounded-lg px-4 py-2 pr-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                                         >
                                             <option value="">Max Price: All</option>
                                             <option value="4.0">Max: £4.0m</option>
@@ -1199,7 +1106,7 @@ export default function SquadPage() {
                                             setFilterTeam(null);
                                             setFilterMaxPrice(null);
                                         }}
-                                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2"
+                                        className="px-4 py-2 rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/90 border border-border"
                                     >
                                         <XIcon className="w-4 h-4" />
                                         Reset
@@ -1233,10 +1140,10 @@ export default function SquadPage() {
                                     });
                                     
                                     return (
-                                        <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700">
+                                        <div className="rounded-lg p-3 border border-border bg-muted/60 dark:bg-muted/40">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-sm text-muted-foreground">
-                                                    Showing <span className="font-bold text-white">{filteredPlayers.length}</span> players from database
+                                                    Showing <span className="font-bold text-foreground">{filteredPlayers.length}</span> players from database
                                                     {myTeamPlayerIds.size > 0 && ` · Your team: ${myTeamPlayerIds.size} players`}
                                                 </p>
                                                 {selectedForComparison.length > 0 && (
@@ -1330,47 +1237,39 @@ export default function SquadPage() {
                                                     onClick={handleCardClick}
                                                     className={`relative p-3 rounded-lg border-2 cursor-pointer transition-all hover:scale-105 ${
                                                         isSelected
-                                                            ? 'bg-blue-500/30 border-blue-500 ring-2 ring-blue-400'
+                                                            ? 'bg-info-muted border-info ring-2 ring-info/50'
                                                             : isInMyTeam
-                                                                ? 'bg-green-500/20 border-green-500/50'
+                                                                ? 'bg-positive-muted border-positive/45'
                                                                 : 'bg-card border-primary/30 hover:border-primary/50'
                                                     }`}
                                                 >
                                                     {isSelected && (
-                                                        <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs font-bold rounded-full z-10 flex items-center justify-center w-6 h-6 shadow-lg">
+                                                        <div className="absolute top-2 left-2 bg-info text-primary-foreground text-xs font-bold rounded-full z-10 flex items-center justify-center w-6 h-6 shadow-lg">
                                                             {selectedForComparison.indexOf(player.id) + 1}
                                                         </div>
                                                     )}
                                                     {isInMyTeam && !isSelected && (
-                                                        <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
+                                                        <div className="absolute top-2 right-2 bg-positive text-primary-foreground text-xs font-bold px-2 py-1 rounded">
                                                             IN TEAM
                                                         </div>
                                                     )}
                                                     {isInMyTeam && isSelected && (
-                                                        <div className="absolute top-2 right-8 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded z-10">
+                                                        <div className="absolute top-2 right-8 bg-positive text-primary-foreground text-xs font-bold px-2 py-1 rounded z-10">
                                                             IN TEAM
                                                         </div>
                                                     )}
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/30 bg-gray-800">
-                                                            <img
-                                                                src={`https://resources.premierleague.com/premierleague/photos/players/250x250/p${player.code}.png`}
-                                                                alt={player.web_name}
-                                                                className="w-full h-full object-cover"
-                                                                onError={(e) => {
-                                                                    e.currentTarget.style.display = 'none';
-                                                                    const div = document.createElement('div');
-                                                                    div.className = 'w-full h-full flex items-center justify-center text-lg font-bold text-orange-400 bg-gray-800';
-                                                                    div.textContent = player.web_name?.[0] || '?';
-                                                                    e.currentTarget.parentElement?.appendChild(div);
-                                                                }}
-                                                            />
-                                                        </div>
+                                                        <PlayerAvatar
+                                                            player={{ ...player, id: player.id }}
+                                                            teamBadgeCode={playerTeam?.code}
+                                                            size="sm"
+                                                            className="border-2 border-white/30 bg-gray-800 !border-white/30"
+                                                        />
                                                         <div className="flex-1 min-w-0">
                                                             <p className="font-bold text-sm truncate">{player.web_name}</p>
                                                             <p className="text-xs text-muted-foreground truncate">{playerTeam?.short_name || 'N/A'}</p>
                                                             <div className="flex items-center gap-2 mt-1">
-                                                                <span className="text-xs font-semibold text-orange-400">£{(player.now_cost / 10).toFixed(1)}m</span>
+                                                                <span className="text-xs font-semibold text-caution">£{(player.now_cost / 10).toFixed(1)}m</span>
                                                                 <span className="text-xs text-muted-foreground">•</span>
                                                                 <span className="text-xs font-semibold">{player.total_points} pts</span>
                                                                 {pick && (
@@ -1400,39 +1299,33 @@ export default function SquadPage() {
                 </div>
             </div>
             {/* Player Comparison Modal */}
-            {showComparisonModal && selectedForComparison.length === 2 && (() => {
-                const player1 = elements.find((p: any) => p.id === selectedForComparison[0]);
-                const player2 = elements.find((p: any) => p.id === selectedForComparison[1]);
-                
-                if (!player1 || !player2) return null;
-                
-                const team1 = getTeam(player1.team);
-                const team2 = getTeam(player2.team);
-                
-                return (
-                    <PlayerComparisonModal
-                        player1={player1}
-                        player2={player2}
-                        team1={team1}
-                        team2={team2}
-                        upgradeSource="overall"
-                        onPlayerClick={(player) => {
-                            setSelectedPlayer(player);
-                            setShowComparisonModal(false);
-                        }}
-                        onClose={() => setShowComparisonModal(false)}
-                    />
-                );
-            })()}
+            {showComparisonModal && selectedForComparison.length === 2 && elements.find((p: any) => p.id === selectedForComparison[0]) && elements.find((p: any) => p.id === selectedForComparison[1]) && (
+                <PlayerComparisonModal
+                    player1={elements.find((p: any) => p.id === selectedForComparison[0])}
+                    player2={elements.find((p: any) => p.id === selectedForComparison[1])}
+                    team1={getTeam(elements.find((p: any) => p.id === selectedForComparison[0])?.team)}
+                    team2={getTeam(elements.find((p: any) => p.id === selectedForComparison[1])?.team)}
+                    upgradeSource="overall"
+                    onPlayerClick={(player) => {
+                        setSelectedPlayer(player);
+                        setShowComparisonModal(false);
+                    }}
+                    onClose={() => setShowComparisonModal(false)}
+                />
+            )}
 
-            <PlayerDetailModal
-                player={selectedPlayer}
-                team={selectedPlayer ? teams?.find((t: any) => t.id === selectedPlayer.team) : null}
-                teams={teams || []}
-                fixtures={fixtures || []}
-                currentEvent={currentEvent?.id || currentEventId || 1}
-                onClose={() => setSelectedPlayer(null)}
-            />
+            <AnimatePresence>
+                {selectedPlayer && (
+                    <PlayerDetailModal
+                        player={selectedPlayer}
+                        team={teams?.find((t: any) => t.id === selectedPlayer.team) || null}
+                        teams={teams || []}
+                        fixtures={fixtures || []}
+                        currentEvent={currentEvent?.id || currentEventId || 1}
+                        onClose={() => setSelectedPlayer(null)}
+                    />
+                )}
+            </AnimatePresence>
         </>
     );
 }

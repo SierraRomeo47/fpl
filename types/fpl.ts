@@ -11,6 +11,8 @@ export interface FPLElement {
     selected_by_percent: string;
     news: string;
     status: string;
+    /** Expected points next GW (bootstrap field name varies; API uses ep_next) */
+    ep_next?: string | number;
 }
 
 export interface FPLTeam {
@@ -68,4 +70,55 @@ export interface FPLHistory {
     current: FPLHistoryCurrent[];
     past: any[];
     chips: any[];
+}
+
+export interface FPLFixture {
+    id: number;
+    event: number;
+    team_h: number;
+    team_a: number;
+    team_h_difficulty: number;
+    team_a_difficulty: number;
+    finished: boolean;
+    team_h_score?: number | null;
+    team_a_score?: number | null;
+}
+
+export interface ChipRecommendation {
+    chip: 'wildcard' | 'freehit' | 'bench_boost' | 'triple_captain';
+    gameweek: number;
+    reason: string;
+    priority: 'high' | 'medium' | 'low';
+    blankGWs?: number[];
+    doubleGWs?: number[];
+}
+
+export interface PlayerUpgradeRanking {
+    playerOut: FPLElement;
+    playerIn: FPLElement;
+    rank: number;
+    shortTermUpside: number;
+    longTermUpside: number;
+    formImprovement: number;
+    fixtureImprovement: number;
+    valueImprovement: number;
+    reason: string;
+    executeThisGW: boolean;
+    reasonToExecute: string;
+}
+
+export interface ChipStrategy {
+    recommendations: ChipRecommendation[];
+    remainingChips: string[];
+    blankGameweeks: number[];
+    doubleGameweeks: number[];
+}
+
+export interface TeamStructureAnalysis {
+    structure: 'stars-scrubs' | 'balanced' | 'mid-heavy';
+    premiumCount: number;
+    midPriceCount: number;
+    budgetCount: number;
+    recommendation: string;
+    score: number;
 }

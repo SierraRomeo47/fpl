@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Flame, DollarSign, Brain, Sparkles, ArrowRight } from 'lucide-react';
 import { FixtureDifficulty } from './fixture-difficulty';
-import { getPlayerPhotoUrls, getTeamBadgeUrl, getPlayerInitials } from '@/lib/player-photo-utils';
+import { getPlayerPhotoUrls, getPlayerInitials, PLAYER_HEADSHOT_IMG_CLASSNAME } from '@/lib/player-photo-utils';
+import { cn } from '@/lib/utils';
+import { TeamBadgeImage } from '@/components/team-badge-image';
 import { hasFavorableFixtures } from '@/lib/fixture-utils';
 
 interface EnhancedPlayerCardProps {
@@ -38,7 +40,7 @@ function getAIAnalysisTags(player: any): Array<{ text: string; icon: any; color:
         tags.push({
             text: `Budget friendly at £${price.toFixed(1)}m`,
             icon: DollarSign,
-            color: 'text-green-500'
+            color: 'text-positive'
         });
     }
 
@@ -67,7 +69,13 @@ export function EnhancedPlayerCard({
 }: EnhancedPlayerCardProps) {
     const [photoUrlIndex, setPhotoUrlIndex] = useState(0);
     const [photoFailed, setPhotoFailed] = useState(false);
-    const photoUrls = getPlayerPhotoUrls({ code: player.code, photo: player.photo, web_name: player.web_name, team: player.team });
+    const photoUrls = getPlayerPhotoUrls({
+        code: player.code,
+        photo: player.photo,
+        web_name: player.web_name,
+        team: player.team,
+        elementId: player.id,
+    });
 
     const aiTags = getAIAnalysisTags(player);
     const form = parseFloat(player.form) || 0;
@@ -111,7 +119,7 @@ export function EnhancedPlayerCard({
                                 key={photoUrlIndex}
                                 src={photoUrls[photoUrlIndex]}
                                 alt={player.web_name}
-                                className="w-full h-full object-cover"
+                                className={cn('w-full h-full', PLAYER_HEADSHOT_IMG_CLASSNAME)}
                                 onError={handlePhotoError}
                             />
                         ) : (
@@ -123,13 +131,10 @@ export function EnhancedPlayerCard({
                     {/* Team Badge */}
                     {team && (
                         <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-card border border-primary/30 overflow-hidden">
-                            <img
-                                src={getTeamBadgeUrl(team.code)}
+                            <TeamBadgeImage
+                                teamCode={team.code}
                                 alt={team.short_name}
                                 className="w-full h-full object-contain p-0.5"
-                                onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                }}
                             />
                         </div>
                     )}

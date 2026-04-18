@@ -1,8 +1,5 @@
 // Multi-source API integration for enhanced FPL data
-
-const UNDERSTAT_BASE = 'https://understat.com';
-const FOTMOB_BASE = 'https://www.fotmob.com/api';
-const SPORTSDB_BASE = 'https://www.thesportsdb.com/api/v1/json/3'; // Free tier key
+// NOTE: External sources are fetched server-side and cached on disk.
 
 // FPL Official Images
 export const getPlayerImage = (photoId: string) =>
@@ -11,53 +8,27 @@ export const getPlayerImage = (photoId: string) =>
 export const getTeamBadge = (teamCode: number) =>
     `https://resources.premierleague.com/premierleague/badges/t${teamCode}.png`;
 
-// Understat - xG/xA data (No key needed)
-export async function getUnderstatPlayerStats(playerName: string) {
-    try {
-        // Understat doesn't have a direct API, would need scraping
-        // For now, return mock structure - in production would use a scraper
-        return {
-            xG: 0,
-            xA: 0,
-            xG90: 0,
-            xA90: 0,
-        };
-    } catch (error) {
-        console.error('[Understat] Error:', error);
-        return null;
-    }
-}
-
-// FotMob - News & Lineups (No key needed - unofficial)
-export async function getFotMobPlayerNews(playerId: number) {
-    try {
-        const response = await fetch(`${FOTMOB_BASE}/playerdata?id=${playerId}`);
-        if (!response.ok) return null;
-        return response.json();
-    } catch (error) {
-        console.error('[FotMob] Error:', error);
-        return null;
-    }
-}
-
-// SportsDB - Team badges & player info (Free with basic key)
-export async function getSportsDBTeamInfo(teamName: string) {
-    try {
-        const response = await fetch(`${SPORTSDB_BASE}/searchteams.php?t=${encodeURIComponent(teamName)}`);
-        if (!response.ok) return null;
-        const data = await response.json();
-        return data.teams?.[0];
-    } catch (error) {
-        console.error('[SportsDB] Error:', error);
-        return null;
-    }
-}
+export { getUnderstatPlayerStatsByTeam as getUnderstatPlayerStats } from "@/lib/external/understat";
+export { getFotmobPlayerData as getFotMobPlayerNews, resolveFotmobPlayerId } from "@/lib/external/fotmob";
+export { getSportsDbTeamInfo as getSportsDBTeamInfo } from "@/lib/external/sportsdb";
 
 // Combined data fetcher
 export async function getEnrichedPlayerData(player: any) {
+    const season = Number(process.env.UNDERSTAT_SEASON) || new Date().getFullYear() - 1;
+    const playerName = `${player.first_name} ${player.second_name}`.trim();
+    const teamName = player.team_name || player.teamName || player.team?.name;
+
+    const fotmobId = await (async () => {
+        try {
+            return await (await import("@/lib/external/fotmob")).resolveFotmobPlayerId(player.web_name || playerName, teamName);
+        } catch {
+            return null;
+        }
+    })();
+
     const [understatData, fotmobNews] = await Promise.all([
-        getUnderstatPlayerStats(`${player.first_name} ${player.second_name}`),
-        getFotMobPlayerNews(player.id),
+        teamName ? (await import("@/lib/external/understat")).getUnderstatPlayerStatsByTeam(playerName, teamName, season) : null,
+        fotmobId ? (await import("@/lib/external/fotmob")).getFotmobPlayerData(fotmobId) : null,
     ]);
 
     return {

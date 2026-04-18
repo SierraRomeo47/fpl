@@ -1,4 +1,3 @@
-
 import type { NextConfig } from "next";
 
 const withPWA = require("@ducanh2912/next-pwa").default({
@@ -15,8 +14,10 @@ const nextConfig: NextConfig = {
   experimental: {
     // Only if needed for advanced server actions or similar
   },
-  // Turbopack configuration (empty config to silence warning)
-  turbopack: {},
+  // Pin workspace root when multiple package-lock files exist (run commands from `fpl/`)
+  turbopack: {
+    root: process.cwd(),
+  },
 };
 
 export default withPWA(nextConfig);

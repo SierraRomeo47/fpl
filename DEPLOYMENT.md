@@ -7,6 +7,15 @@
 3. SSH key pair
 4. Basic knowledge of Linux server administration
 
+## Production checklist
+
+- **Environment**: Start from [`.env.example`](.env.example) and create `.env.production` on the server with real values. Never commit secrets.
+- **Public env vars**: Prefer server-only keys (for example `NEWS_API_KEY`). Anything prefixed with `NEXT_PUBLIC_` is exposed to the browser bundle.
+- **Sessions**: The default session store writes to `sessions.json` via [`lib/session-store.ts`](lib/session-store.ts). That works for a **single** Node/PM2 process on one machine. For multiple instances, serverless, or horizontal scaling, replace it with Redis or a shared database.
+- **Debug APIs**: `/api/test-cookies` is disabled when `NODE_ENV=production` (404). Audit other routes under `app/api/` before launch and gate or remove anything that is dev-only.
+- **Build**: Deploy only after `npm run build` succeeds; run the same in CI if possible.
+- **HTTPS**: Terminate TLS at Nginx (or your reverse proxy) so secure cookies from the auth routes behave correctly.
+
 ## Step 1: Create Hetzner Cloud Server
 
 ### Recommended Server Configuration
@@ -106,13 +115,14 @@ npm install
 nano .env.production
 ```
 
-Add your production environment variables:
+Add your production environment variables (see [`.env.example`](.env.example) for all optional keys):
 
 ```env
 NODE_ENV=production
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
 PORT=3000
-# Add any other required environment variables
+# NEWS_API_KEY=...   # server-only recommended
+# FOOTBALL_DATA_API_KEY=...
 ```
 
 ### Build Application

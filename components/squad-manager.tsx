@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -25,10 +25,17 @@ export function SquadManager({ myTeam, bootstrap, fixtures }: SquadManagerProps)
     const [isChangingCaptain, setIsChangingCaptain] = useState(false);
     const [selectedCaptain, setSelectedCaptain] = useState<number | null>(null);
     const [selectedVice, setSelectedVice] = useState<number | null>(null);
+    const [localPicks, setLocalPicks] = useState(myTeam.picks);
+    const [isSavingFormation, setIsSavingFormation] = useState(false);
+
+    // Sync from server if myTeam changes
+    useEffect(() => {
+        setLocalPicks(myTeam.picks);
+    }, [myTeam.picks]);
 
     // Get current captain and vice
-    const currentCaptain = myTeam.picks.find((p: any) => p.is_captain);
-    const currentVice = myTeam.picks.find((p: any) => p.is_vice_captain);
+    const currentCaptain = localPicks.find((p: any) => p.is_captain);
+    const currentVice = localPicks.find((p: any) => p.is_vice_captain);
 
     const handleCaptainChange = async () => {
         if (!selectedCaptain || !selectedVice) {
@@ -75,6 +82,49 @@ export function SquadManager({ myTeam, bootstrap, fixtures }: SquadManagerProps)
             // Reset
             setSelectedCaptain(playerId);
             setSelectedVice(null);
+        }
+    };
+
+    const handlePlayerSwap = (draggedId: number, targetId: number) => {
+        setLocalPicks((prevPicks: any) => {
+            const newPicks = [...prevPicks];
+            const draggedIdx = newPicks.findIndex(p => p.element === draggedId);
+            const targetIdx = newPicks.findIndex(p => p.element === targetId);
+            
+            if (draggedIdx === -1 || targetIdx === -1) return prevPicks;
+
+            // Swap positions
+            const draggedPos = newPicks[draggedIdx].position;
+            const targetPos = newPicks[targetIdx].position;
+            
+            newPicks[draggedIdx] = { ...newPicks[draggedIdx], position: targetPos };
+            newPicks[targetIdx] = { ...newPicks[targetIdx], position: draggedPos };
+            
+            return newPicks.sort((a, b) => a.position - b.position);
+        });
+    };
+
+    const hasUnsavedChanges = JSON.stringify(localPicks) !== JSON.stringify(myTeam.picks);
+
+    const saveFormation = async () => {
+        setIsSavingFormation(true);
+        try {
+            const res = await fetch("/api/squad/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ picks: localPicks }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast.success("Formation Saved!");
+                router.refresh();
+            } else {
+                toast.error("Save Failed", { description: data.error || "Failed to update formation" });
+            }
+        } catch (error) {
+            toast.error("Network Error", { description: "Please try again later." });
+        } finally {
+            setIsSavingFormation(false);
         }
     };
 
@@ -175,17 +225,34 @@ export function SquadManager({ myTeam, bootstrap, fixtures }: SquadManagerProps)
 
                     {/* Formation Display */}
                     <FormationPitch
-                        picks={myTeam.picks}
+                        picks={localPicks}
                         players={bootstrap.elements}
                         teams={bootstrap.teams}
                         isChangingCaptain={isChangingCaptain}
                         selectedCaptain={selectedCaptain}
                         selectedVice={selectedVice}
                         onPlayerSelect={handlePlayerSelect}
+                        onPlayerSwap={handlePlayerSwap}
                     />
 
                     {/* Action Buttons */}
-                    {!isChangingCaptain && (
+                    {hasUnsavedChanges && !isChangingCaptain && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center justify-between"
+                        >
+                            <p className="text-sm font-medium">You have unsaved lineup changes.</p>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setLocalPicks(myTeam.picks)}>Discard</Button>
+                                <Button size="sm" onClick={saveFormation} disabled={isSavingFormation}>
+                                    {isSavingFormation ? "Saving..." : "Save Formation"}
+                                </Button>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {!isChangingCaptain && !hasUnsavedChanges && (
                         <div className="grid grid-cols-2 gap-3">
                             <Button
                                 variant="outline"

@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Star, TrendingUp, Shield } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, LayoutGroup } from "framer-motion";
 
 interface Player {
     element: number;
@@ -21,6 +21,7 @@ interface FormationPitchProps {
     selectedCaptain?: number | null;
     selectedVice?: number | null;
     onPlayerSelect?: (playerId: number) => void;
+    onPlayerSwap?: (playerAId: number, playerBId: number) => void;
 }
 
 export function FormationPitch({
@@ -31,6 +32,7 @@ export function FormationPitch({
     selectedCaptain = null,
     selectedVice = null,
     onPlayerSelect,
+    onPlayerSwap,
 }: FormationPitchProps) {
     const getPlayer = (elementId: number) => {
         return players.find((p) => p.id === elementId);
@@ -67,6 +69,25 @@ export function FormationPitch({
         return (
             <motion.div
                 key={pick.element}
+                layoutId={`player-${pick.element}`}
+                draggable={!isChangingCaptain}
+                onDragStart={(e) => {
+                    const el = e as unknown as React.DragEvent;
+                    el.dataTransfer.setData('playerId', pick.element.toString());
+                    el.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(e) => {
+                    if (!isChangingCaptain) e.preventDefault();
+                }}
+                onDrop={(e) => {
+                    if (isChangingCaptain) return;
+                    e.preventDefault();
+                    const el = e as unknown as React.DragEvent;
+                    const draggedPlayerId = parseInt(el.dataTransfer.getData('playerId'), 10);
+                    if (draggedPlayerId && draggedPlayerId !== pick.element && onPlayerSwap) {
+                        onPlayerSwap(draggedPlayerId, pick.element);
+                    }
+                }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
@@ -74,7 +95,7 @@ export function FormationPitch({
                         onPlayerSelect(pick.element);
                     }
                 }}
-                className={`relative ${isChangingCaptain && !isBench ? "cursor-pointer" : ""}`}
+                className={`relative ${isChangingCaptain && !isBench ? "cursor-pointer" : isChangingCaptain ? "" : "cursor-grab active:cursor-grabbing"}`}
             >
                 <Card
                     className={`text-center transition-all ${isSelected
@@ -138,7 +159,7 @@ export function FormationPitch({
                         {/* Form Indicator */}
                         {player.form && parseFloat(player.form) > 5 && (
                             <div className="absolute -bottom-1 -left-1">
-                                <TrendingUp className="h-3 w-3 text-green-500" />
+                                <TrendingUp className="h-3 w-3 text-positive" />
                             </div>
                         )}
                     </CardContent>
@@ -148,6 +169,7 @@ export function FormationPitch({
     };
 
     return (
+        <LayoutGroup>
         <div className="space-y-4">
             {/* Pitch */}
             <Card className="bg-gradient-to-b from-green-600/20 via-green-500/10 to-green-600/20 border-green-600/30 overflow-hidden">
@@ -207,5 +229,6 @@ export function FormationPitch({
                 </CardContent>
             </Card>
         </div>
+        </LayoutGroup>
     );
 }

@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+
+    // Project-specific generated / non-source folders:
+    "antigravity-ext/**",
+    "cache/**",
+    ".cursor/**",
+    "sessions.json",
   ]),
 ]);
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Users, TrendingUp, TrendingDown, Medal, Crown, Award, Globe, Flag } from "lucide-react";
+import { Trophy, Users, TrendingUp, TrendingDown, Medal, Crown, Award, Globe, Flag, Eye, Activity } from "lucide-react";
 
 // Retry helper with exponential backoff
 async function fetchWithRetry(url: string, options: RequestInit = {}, maxRetries = 3): Promise<Response> {
@@ -37,7 +37,9 @@ export default function LeaguesPage() {
         const loadData = async () => {
             try {
                 // First check if we have a valid session via cookies
-                const sessionRes = await fetchWithRetry('/api/session');
+                const sessionRes = await fetchWithRetry('/api/session', {
+                    credentials: 'include'
+                });
                 
                 if (!sessionRes.ok) {
                     // Only redirect if it's a 401 (unauthorized) - means no valid session
@@ -52,7 +54,9 @@ export default function LeaguesPage() {
 
                 // Get full session data
                 const sessionCheck = await sessionRes.json();
-                const createRes = await fetch('/api/session/create');
+                const createRes = await fetch('/api/session/create', {
+                    credentials: 'include'
+                });
                 let data;
                 if (createRes.ok) {
                     data = await createRes.json();
@@ -255,16 +259,16 @@ export default function LeaguesPage() {
 
     const getRankColor = (rank: number, total: number) => {
         const percentage = (rank / total) * 100;
-        if (percentage <= 10) return 'text-yellow-500';
-        if (percentage <= 25) return 'text-green-500';
-        if (percentage <= 50) return 'text-blue-500';
+        if (percentage <= 10) return 'text-rank-gold';
+        if (percentage <= 25) return 'text-positive';
+        if (percentage <= 50) return 'text-info';
         return 'text-muted-foreground';
     };
 
     const getRankBadge = (rank: number) => {
-        if (rank === 1) return <Crown className="w-4 h-4 text-yellow-500" />;
-        if (rank === 2) return <Medal className="w-4 h-4 text-gray-400" />;
-        if (rank === 3) return <Medal className="w-4 h-4 text-orange-600" />;
+        if (rank === 1) return <Crown className="w-4 h-4 text-rank-gold" />;
+        if (rank === 2) return <Medal className="w-4 h-4 text-muted-foreground" />;
+        if (rank === 3) return <Medal className="w-4 h-4 text-caution" />;
         return null;
     };
 
@@ -304,10 +308,10 @@ export default function LeaguesPage() {
                                             return <div className="w-6 h-6 text-red-600">🔴</div>;
                                         }
                                         if (league.name.toLowerCase().includes('india')) {
-                                            return <Flag className="w-6 h-6 text-orange-500" />;
+                                            return <Flag className="w-6 h-6 text-caution" />;
                                         }
                                         if (league.name.toLowerCase().includes('overall')) {
-                                            return <Globe className="w-6 h-6 text-blue-500" />;
+                                            return <Globe className="w-6 h-6 text-info" />;
                                         }
                                         return <Trophy className="w-6 h-6 text-primary" />;
                                     };
@@ -319,7 +323,10 @@ export default function LeaguesPage() {
                                                     <div className="flex-1">
                                                         <div className="flex items-center gap-2 mb-2">
                                                             {getLeagueIcon()}
-                                                            <CardTitle className="text-xl">{league.name}</CardTitle>
+                                                            <CardTitle className="text-xl cursor-pointer hover:text-primary transition-colors flex items-center gap-2" onClick={() => router.push(`/leagues/${league.id}`)}>
+                                                                {league.name}
+                                                                <Eye className="w-4 h-4 text-primary" />
+                                                            </CardTitle>
                                                         </div>
                                                         <div className="flex flex-wrap gap-2">
                                                             {league.league_type && (
@@ -356,20 +363,20 @@ export default function LeaguesPage() {
                                                         <p className="text-xs text-muted-foreground mb-1">Your Rank</p>
                                                         <p className="text-2xl font-bold text-primary">#{league.entry_rank}</p>
                                                     </div>
-                                                    <div className="text-center p-3 bg-green-500/10 rounded-lg">
+                                                    <div className="text-center p-3 bg-positive-muted rounded-lg">
                                                         <p className="text-xs text-muted-foreground mb-1">Last Rank</p>
-                                                        <p className="text-2xl font-bold text-green-600">
+                                                        <p className="text-2xl font-bold text-positive">
                                                             #{league.entry_last_rank || league.entry_rank}
                                                         </p>
                                                     </div>
-                                                    <div className="text-center p-3 bg-blue-500/10 rounded-lg">
+                                                    <div className="text-center p-3 bg-info-muted rounded-lg">
                                                         <p className="text-xs text-muted-foreground mb-1">Started</p>
-                                                        <p className="text-xl font-bold text-blue-600">GW{league.start_event}</p>
+                                                        <p className="text-xl font-bold text-info">GW{league.start_event}</p>
                                                     </div>
                                                     {league.entries && league.entries > 0 && (
-                                                        <div className="text-center p-3 bg-orange-500/10 rounded-lg">
+                                                        <div className="text-center p-3 bg-caution-muted rounded-lg">
                                                             <p className="text-xs text-muted-foreground mb-1">Top %</p>
-                                                            <p className="text-xl font-bold text-orange-600">
+                                                            <p className="text-xl font-bold text-caution">
                                                                 {((league.entry_rank / league.entries) * 100).toFixed(1)}%
                                                             </p>
                                                         </div>
@@ -377,24 +384,29 @@ export default function LeaguesPage() {
                                                 </div>
 
                                                 {league.entry_last_rank && league.entry_last_rank !== league.entry_rank && (
-                                                    <div className="mt-4 p-3 bg-secondary/50 rounded-lg flex items-center justify-center gap-2">
+                                                    <div className="mt-4 p-3 rounded-lg flex items-center justify-center gap-2 border border-border bg-muted">
                                                         {league.entry_last_rank > league.entry_rank ? (
                                                             <>
-                                                                <TrendingUp className="w-5 h-5 text-green-500" />
-                                                                <span className="text-sm font-semibold text-green-500">
+                                                                <TrendingUp className="w-5 h-5 text-positive" />
+                                                                <span className="text-sm font-semibold text-positive">
                                                                     Up {league.entry_last_rank - league.entry_rank} places
                                                                 </span>
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <TrendingDown className="w-5 h-5 text-red-500" />
-                                                                <span className="text-sm font-semibold text-red-500">
+                                                                <TrendingDown className="w-5 h-5 text-negative" />
+                                                                <span className="text-sm font-semibold text-negative">
                                                                     Down {league.entry_rank - league.entry_last_rank} places
                                                                 </span>
                                                             </>
                                                         )}
                                                     </div>
                                                 )}
+                                                <div className="mt-4 flex gap-2">
+                                                    <button onClick={() => router.push(`/leagues/${league.id}`)} className="flex-1 p-3 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-sm tracking-widest uppercase rounded-lg flex items-center justify-center gap-2 transition-colors">
+                                                        <Activity className="w-4 h-4" /> Live Sweep League
+                                                    </button>
+                                                </div>
                                             </CardContent>
                                         </Card>
                                     );
@@ -447,21 +459,21 @@ export default function LeaguesPage() {
                                         </CardHeader>
                                         <CardContent>
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                <div className="text-center p-3 bg-primary/10 rounded-lg">
+                                                <div className="text-center p-3 bg-positive-muted rounded-lg">
                                                     <p className="text-xs text-muted-foreground mb-1">Wins</p>
-                                                    <p className="text-2xl font-bold text-green-600">{league.entry_win || 0}</p>
+                                                    <p className="text-2xl font-bold text-positive">{league.entry_win || 0}</p>
                                                 </div>
-                                                <div className="text-center p-3 bg-yellow-500/10 rounded-lg">
+                                                <div className="text-center p-3 bg-draw-muted rounded-lg">
                                                     <p className="text-xs text-muted-foreground mb-1">Draws</p>
-                                                    <p className="text-2xl font-bold text-yellow-600">{league.entry_draw || 0}</p>
+                                                    <p className="text-2xl font-bold text-draw">{league.entry_draw || 0}</p>
                                                 </div>
-                                                <div className="text-center p-3 bg-red-500/10 rounded-lg">
+                                                <div className="text-center p-3 bg-negative-muted rounded-lg">
                                                     <p className="text-xs text-muted-foreground mb-1">Losses</p>
-                                                    <p className="text-2xl font-bold text-red-600">{league.entry_loss || 0}</p>
+                                                    <p className="text-2xl font-bold text-negative">{league.entry_loss || 0}</p>
                                                 </div>
-                                                <div className="text-center p-3 bg-blue-500/10 rounded-lg">
+                                                <div className="text-center p-3 bg-info-muted rounded-lg">
                                                     <p className="text-xs text-muted-foreground mb-1">Points</p>
-                                                    <p className="text-2xl font-bold text-blue-600">{league.entry_points || 0}</p>
+                                                    <p className="text-2xl font-bold text-info">{league.entry_points || 0}</p>
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -475,7 +487,7 @@ export default function LeaguesPage() {
                     {leagues.cup && leagues.cup.length > 0 && (
                         <div className="space-y-4">
                             <h2 className="text-2xl font-bold flex items-center gap-2">
-                                <Trophy className="w-6 h-6 text-yellow-500" />
+                                <Trophy className="w-6 h-6 text-rank-gold" />
                                 Cup Competitions
                             </h2>
 
@@ -484,7 +496,7 @@ export default function LeaguesPage() {
                                     <Card key={cup.id} className="border-yellow-500/20 hover:border-yellow-500/40 transition-all">
                                         <CardHeader>
                                             <CardTitle className="text-xl flex items-center gap-2">
-                                                <Trophy className="w-5 h-5 text-yellow-500" />
+                                                <Trophy className="w-5 h-5 text-rank-gold" />
                                                 {cup.name}
                                             </CardTitle>
                                         </CardHeader>
@@ -520,7 +532,7 @@ export default function LeaguesPage() {
                     <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-purple-500/10">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <Crown className="w-5 h-5 text-yellow-500" />
+                                <Crown className="w-5 h-5 text-rank-gold" />
                                 League Summary
                             </CardTitle>
                         </CardHeader>
@@ -534,13 +546,13 @@ export default function LeaguesPage() {
                                 </div>
                                 <div className="text-center p-4 bg-card rounded-lg">
                                     <p className="text-sm text-muted-foreground mb-1">Best Rank</p>
-                                    <p className="text-3xl font-black text-green-600">
+                                    <p className="text-3xl font-black text-positive">
                                         #{Math.min(...(leagues.classic?.map((l: any) => l.entry_rank) || [999999]))}
                                     </p>
                                 </div>
                                 <div className="text-center p-4 bg-card rounded-lg">
                                     <p className="text-sm text-muted-foreground mb-1">Top 3 Finishes</p>
-                                    <p className="text-3xl font-black text-yellow-500">
+                                    <p className="text-3xl font-black text-rank-gold">
                                         {(leagues.classic?.filter((l: any) => l.entry_rank <= 3).length || 0) +
                                             (leagues.h2h?.filter((l: any) => l.entry_rank <= 3).length || 0)}
                                     </p>

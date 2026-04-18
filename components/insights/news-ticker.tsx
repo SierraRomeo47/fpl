@@ -45,6 +45,34 @@ export function NewsTicker({ player, team }: NewsTickerProps) {
                 // Build prioritized news items
                 const newsItems: NewsTickerItem[] = [];
 
+                // 0. Try enriched external sources (FotMob + Understat) first
+                try {
+                    const enrichedRes = await fetch(`/api/enriched/player/${player.id}`);
+                    if (enrichedRes.ok) {
+                        const enriched = await enrichedRes.json();
+                        const fotmobRaw = enriched?.sources?.fotmob?.raw;
+                        // FotMob often contains "injuries"/"news" style fields, but the schema varies.
+                        // We surface a small, safe subset if present.
+                        const injuryText =
+                            fotmobRaw?.injury?.description ||
+                            fotmobRaw?.injury?.injury ||
+                            fotmobRaw?.injuries?.[0]?.description ||
+                            fotmobRaw?.injuries?.[0]?.injury ||
+                            null;
+
+                        if (injuryText) {
+                            newsItems.push({
+                                id: 'fotmob-injury',
+                                title: String(injuryText).slice(0, 120),
+                                priority: 'high',
+                                type: 'injury',
+                            });
+                        }
+                    }
+                } catch (e) {
+                    // Non-fatal
+                }
+
                 // 1. HIGH PRIORITY: Player health status (always first if not 100%)
                 if (healthPercent < 100 || playerStatus !== 'a' || playerNews) {
                     let healthTitle = '';

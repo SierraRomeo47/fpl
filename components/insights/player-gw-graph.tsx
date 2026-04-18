@@ -86,7 +86,7 @@ export function PlayerGWGraph({ playerId }: PlayerGWGraphProps) {
         return (
             <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
-                    <BarChart3 className="w-5 h-5 text-orange-600" />
+                    <BarChart3 className="w-5 h-5 text-caution" />
                     <h4 className="font-bold text-sm text-gray-900">Points Per Gameweek</h4>
                 </div>
                 <div className="h-48 flex items-center justify-center">
@@ -100,7 +100,7 @@ export function PlayerGWGraph({ playerId }: PlayerGWGraphProps) {
         return (
             <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
-                    <BarChart3 className="w-5 h-5 text-orange-600" />
+                    <BarChart3 className="w-5 h-5 text-caution" />
                     <h4 className="font-bold text-sm text-gray-900">Points Per Gameweek</h4>
                 </div>
                 <div className="h-48 flex items-center justify-center text-gray-500 text-sm">
@@ -114,7 +114,7 @@ export function PlayerGWGraph({ playerId }: PlayerGWGraphProps) {
         return (
             <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
-                    <BarChart3 className="w-5 h-5 text-orange-600" />
+                    <BarChart3 className="w-5 h-5 text-caution" />
                     <h4 className="font-bold text-sm text-gray-900">Points Per Gameweek</h4>
                 </div>
                 <div className="h-48 flex items-center justify-center text-gray-500 text-sm">
@@ -155,13 +155,13 @@ export function PlayerGWGraph({ playerId }: PlayerGWGraphProps) {
         return (
             <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
-                    <BarChart3 className="w-5 h-5 text-orange-600" />
+                    <BarChart3 className="w-5 h-5 text-caution" />
                     <h4 className="font-bold text-sm text-gray-900">Points Per Gameweek</h4>
                 </div>
                 <div className="h-48 flex items-center justify-center text-gray-500 text-sm">
                     No valid gameweek data
                     {history.length > 0 && (
-                        <div className="text-xs mt-2 text-gray-400">
+                        <div className="text-xs mt-2 text-muted-foreground">
                             (Found {history.length} entries but couldn't extract points)
                         </div>
                     )}
@@ -201,7 +201,7 @@ export function PlayerGWGraph({ playerId }: PlayerGWGraphProps) {
         <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 shadow-sm">
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-orange-600" />
+                    <BarChart3 className="w-5 h-5 text-caution" />
                     <h4 className="font-bold text-sm text-gray-900">Points Per Gameweek</h4>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
@@ -326,7 +326,7 @@ export function PlayerGWGraph({ playerId }: PlayerGWGraphProps) {
             {/* Legend */}
             <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-gray-300">
                 <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded bg-green-500"></div>
+                    <div className="w-3 h-3 rounded bg-positive"></div>
                     <span className="text-[9px] text-gray-700 font-semibold">8+ pts</span>
                 </div>
                 <div className="flex items-center gap-1.5">

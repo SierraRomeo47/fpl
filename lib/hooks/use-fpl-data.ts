@@ -1,12 +1,15 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { usePathname } from 'next/navigation';
 
 // Use our proxy API instead of direct FPL calls
 const PROXY_BASE_URL = '/api/fpl';
 
 async function fetchViaProxy(endpoint: string) {
-    const res = await fetch(`${PROXY_BASE_URL}${endpoint}`);
+    const res = await fetch(`${PROXY_BASE_URL}${endpoint}`, {
+        credentials: 'include'
+    });
 
     if (!res.ok) {
         throw new Error(`API Error: ${res.status}`);
@@ -34,15 +37,33 @@ export function useEntry(entryId?: number) {
 
 // Hook: Get my-team (includes transfers data)
 // Uses authenticated server-side route
-export function useMyTeam() {
+export function useMyTeam(enabled: boolean = true) {
+    const pathname = usePathname();
+    // Don't run on login page
+    const shouldEnable = enabled && pathname !== '/login';
+    
     return useQuery({
         queryKey: ['my-team'],
         queryFn: async () => {
-            const res = await fetch('/api/my-team');
+            const res = await fetch('/api/my-team', {
+                credentials: 'include'
+            });
             if (!res.ok) {
+                // Don't throw error for 401 - just return null
+                if (res.status === 401) {
+                    return null;
+                }
                 throw new Error(`API Error: ${res.status}`);
             }
             return res.json();
+        },
+        enabled: shouldEnable,
+        retry: (failureCount, error: any) => {
+            // Don't retry on 401 errors
+            if (error?.message?.includes('401') || error?.status === 401) {
+                return false;
+            }
+            return failureCount < 1;
         },
     });
 }
@@ -74,10 +95,10 @@ export function useFixtures() {
 }
 
 // Combined hook for dashboard
-export function useFPLData(entryId?: number, currentEvent?: number) {
+export function useFPLData(entryId?: number, currentEvent?: number, enableMyTeam: boolean = true) {
     const bootstrap = useBootstrapStatic();
     const entry = useEntry(entryId);
-    const myTeam = useMyTeam();
+    const myTeam = useMyTeam(enableMyTeam && !!entryId);
     const history = useHistory(entryId);
     const picks = useEventPicks(entryId, currentEvent);
     const fixtures = useFixtures();

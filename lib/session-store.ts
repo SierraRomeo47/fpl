@@ -18,8 +18,7 @@ async function loadSessions() {
     try {
         const data = await fs.readFile(SESSION_FILE, 'utf-8');
         sessionCache = JSON.parse(data);
-    } catch (error) {
-        // If file doesn't exist, start empty
+    } catch {
         sessionCache = {};
     }
 }
@@ -29,16 +28,13 @@ async function saveSessions() {
 }
 
 export async function getSession(id: string): Promise<Session | null> {
-    if (Object.keys(sessionCache).length === 0) await loadSessions();
+    await loadSessions();
     const session = sessionCache[id] || null;
-    console.log('[Session Store] Getting session:', { id, found: !!session, entryId: session?.entryId });
     return session;
 }
 
 export async function createSession(id: string, fpl_cookie: string, entryId?: number) {
     if (Object.keys(sessionCache).length === 0) await loadSessions();
-
-    console.log('[Session Store] Creating session:', { id, entryId, entryIdType: typeof entryId });
 
     sessionCache[id] = {
         id,
@@ -49,6 +45,5 @@ export async function createSession(id: string, fpl_cookie: string, entryId?: nu
     };
 
     await saveSessions();
-    console.log('[Session Store] Session saved:', sessionCache[id]);
     return sessionCache[id];
 }

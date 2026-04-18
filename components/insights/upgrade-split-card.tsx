@@ -1,7 +1,9 @@
 'use client';
 
 import { ArrowRight, TrendingUp, Plus } from 'lucide-react';
-import { getPlayerPhotoUrls, getTeamBadgeUrl, getPlayerInitials } from '@/lib/player-photo-utils';
+import { getPlayerPhotoUrls, getPlayerInitials, PLAYER_HEADSHOT_IMG_CLASSNAME } from '@/lib/player-photo-utils';
+import { cn } from '@/lib/utils';
+import { TeamBadgeImage } from '@/components/team-badge-image';
 import { useState } from 'react';
 import { FixtureDifficulty } from './fixture-difficulty';
 import { PlayerComparisonModal } from './player-comparison-modal';
@@ -39,13 +41,15 @@ export function UpgradeSplitCard({
         code: currentPlayer.code,
         photo: currentPlayer.photo,
         web_name: currentPlayer.web_name,
-        team: currentPlayer.team
+        team: currentPlayer.team,
+        elementId: currentPlayer.id,
     });
     const upgradePhotoUrls = getPlayerPhotoUrls({
         code: upgradePlayer.code,
         photo: upgradePlayer.photo,
         web_name: upgradePlayer.web_name,
-        team: upgradePlayer.team
+        team: upgradePlayer.team,
+        elementId: upgradePlayer.id,
     });
 
     const handleCurrentPhotoError = () => {
@@ -123,7 +127,7 @@ export function UpgradeSplitCard({
                                         key={currentPhotoIndex}
                                         src={currentPhotoUrls[currentPhotoIndex] || currentPhotoUrls[0]}
                                         alt={currentPlayer.web_name}
-                                        className="w-full h-full object-cover"
+                                        className={cn('w-full h-full', PLAYER_HEADSHOT_IMG_CLASSNAME)}
                                         onError={handleCurrentPhotoError}
                                     />
                                 ) : (
@@ -141,18 +145,10 @@ export function UpgradeSplitCard({
                             {currentTeam && (
                                 <div className="absolute top-1 right-1 z-10">
                                     <div className={`w-6 h-6 ${currentColors.accent} rounded-full flex items-center justify-center shadow-lg border-2 border-white/70 overflow-hidden bg-white`}>
-                                        <img
-                                            src={getTeamBadgeUrl(currentTeam.code)}
+                                        <TeamBadgeImage
+                                            teamCode={currentTeam.code}
                                             alt={currentTeam.short_name}
                                             className="w-4 h-4 object-contain"
-                                            onError={(e) => {
-                                                const img = e.currentTarget;
-                                                img.style.display = 'none';
-                                                const span = document.createElement('span');
-                                                span.className = 'font-black text-[8px] text-gray-800';
-                                                span.textContent = currentTeam?.short_name?.substring(0, 3).toUpperCase() || '';
-                                                img.parentElement!.appendChild(span);
-                                            }}
                                         />
                                     </div>
                                 </div>
@@ -210,7 +206,7 @@ export function UpgradeSplitCard({
                                         key={upgradePhotoIndex}
                                         src={upgradePhotoUrls[upgradePhotoIndex] || upgradePhotoUrls[0]}
                                         alt={upgradePlayer.web_name}
-                                        className="w-full h-full object-cover"
+                                        className={cn('w-full h-full', PLAYER_HEADSHOT_IMG_CLASSNAME)}
                                         onError={handleUpgradePhotoError}
                                     />
                                 ) : (
@@ -228,18 +224,10 @@ export function UpgradeSplitCard({
                             {upgradeTeam && (
                                 <div className="absolute top-1 right-1 z-10">
                                     <div className={`w-6 h-6 ${upgradeColors.accent} rounded-full flex items-center justify-center shadow-lg border-2 border-white/70 overflow-hidden bg-white`}>
-                                        <img
-                                            src={getTeamBadgeUrl(upgradeTeam.code)}
+                                        <TeamBadgeImage
+                                            teamCode={upgradeTeam.code}
                                             alt={upgradeTeam.short_name}
                                             className="w-4 h-4 object-contain"
-                                            onError={(e) => {
-                                                const img = e.currentTarget;
-                                                img.style.display = 'none';
-                                                const span = document.createElement('span');
-                                                span.className = 'font-black text-[8px] text-gray-800';
-                                                span.textContent = upgradeTeam?.short_name?.substring(0, 3).toUpperCase() || '';
-                                                img.parentElement!.appendChild(span);
-                                            }}
                                         />
                                     </div>
                                 </div>

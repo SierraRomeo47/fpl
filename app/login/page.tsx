@@ -2,10 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dices, Trophy, Activity, Users } from 'lucide-react';
 
 export default function SimplifiedLogin() {
     const [entryId, setEntryId] = useState('');
@@ -28,7 +25,9 @@ export default function SimplifiedLogin() {
 
         try {
             // Validate via our proxy
-            const res = await fetch(`/api/fpl/entry/${id}`);
+            const res = await fetch(`/api/fpl/entry/${id}`, {
+                credentials: 'include'
+            });
 
             if (!res.ok) {
                 throw new Error('Team ID not found');
@@ -36,94 +35,128 @@ export default function SimplifiedLogin() {
 
             const data = await res.json();
 
-            // Save to session
-            await fetch('/api/session/create', {
+            const sessionRes = await fetch('/api/session/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     entryId: id,
                     teamName: data.name,
                     playerName: `${data.player_first_name} ${data.player_last_name}`
                 }),
             });
+            
+            if (!sessionRes.ok) {
+                throw new Error('Failed to create session');
+            }
 
-            // Redirect to dashboard
-            router.push('/dashboard');
+            // Small delay to ensure cookie is processed by browser
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            window.location.href = '/dashboard';
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to find team. Please check your ID.');
-        } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-            <Card className="w-full max-w-md border border-border bg-card shadow-2xl">
-                <CardHeader className="space-y-6 text-center pb-8 pt-8">
-                    <div className="flex justify-center">
-                        <div className="w-28 h-28 flex items-center justify-center">
-                            <Image 
-                                src="/logo.svg" 
-                                alt="FPL DnD Logo" 
-                                width={112} 
-                                height={112} 
-                                className="w-full h-full"
-                                priority
-                            />
+        <div className="min-h-screen flex w-full">
+            {/* Left Editorial Panel */}
+            <div className="hidden lg:flex lg:w-1/2 bg-surface-container-low relative overflow-hidden flex-col justify-between p-12 border-r-2 border-outline-variant/30">
+                <div className="z-10">
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center bg-primary text-white w-10 h-10 rounded-md relative overflow-hidden">
+                            <Dices className="w-5 h-5 absolute" style={{ transform: 'translate(-4px, -4px)' }} />
+                            <Trophy className="w-5 h-5 absolute" style={{ transform: 'translate(4px, 4px)' }} />
+                        </div>
+                        <h2 className="text-primary text-2xl font-bold uppercase tracking-tight font-headline">FPL DnD</h2>
+                    </div>
+                </div>
+                <div className="z-10 max-w-lg mt-auto">
+                    <h1 className="text-[3.5rem] leading-none font-bold text-on-surface mb-6 font-headline tracking-tight">The High-Contrast Curator.</h1>
+                    <p className="text-lg text-on-surface-variant font-body mb-8">
+                        Experience your fantasy football data securely backed by multi-source integration. Gain the edge with Live Gameweek Analysis, Effective Ownership mapping, and predictive rank tracking.
+                    </p>
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-3 text-sm font-bold text-primary">
+                            <Activity className="w-5 h-5" />
+                            <span>Live Matchday Point & BPS Tracking</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm font-bold text-primary">
+                            <Users className="w-5 h-5" />
+                            <span>Mini-League Rivalry Sweeper</span>
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <CardTitle className="text-4xl font-bold text-foreground">
-                            FPL DnD
-                        </CardTitle>
-                        <CardDescription className="text-base text-muted-foreground">
-                            Enter your FPL Team ID to get started
-                        </CardDescription>
+                </div>
+                {/* Decorative Pattern / Background Image */}
+                <div className="absolute inset-0 z-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1508344928928-7137b29de218?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center mix-blend-multiply" ></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-surface-container-low via-surface-container-low/80 to-transparent z-0"></div>
+            </div>
+
+            {/* Right Functional Canvas */}
+            <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 py-12 bg-surface relative">
+                {/* Mobile Brand (Visible only on small screens) */}
+                <div className="lg:hidden mb-16 flex items-center gap-2">
+                    <div className="flex items-center justify-center bg-primary text-white w-8 h-8 rounded-md relative overflow-hidden">
+                        <Dices className="w-4 h-4 absolute" style={{ transform: 'translate(-3px, -3px)' }} />
+                        <Trophy className="w-4 h-4 absolute" style={{ transform: 'translate(3px, 3px)' }} />
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                            <label htmlFor="entryId" className="text-sm font-medium">
-                                Team ID
+                    <h2 className="text-primary text-2xl font-bold uppercase tracking-tight font-headline">FPL DnD</h2>
+                </div>
+
+                <div className="max-w-md w-full mx-auto lg:mx-0">
+                    {/* Form Header */}
+                    <div className="mb-12">
+                        <h2 className="text-4xl font-bold text-foreground font-headline mb-4 tracking-tight">Access Dashboard</h2>
+                        <p className="text-base text-muted-foreground font-body leading-relaxed">Enter your official Fantasy Premier League Team ID below. You can find this in the URL of your team points page on the official FPL site.</p>
+                    </div>
+
+                    {/* Login Form */}
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                        <div>
+                            <label className="block text-[0.75rem] font-bold text-foreground font-label uppercase tracking-widest mb-3" htmlFor="team_id">
+                                FPL Team ID
                             </label>
-                            <Input
-                                id="entryId"
-                                type="number"
-                                placeholder="e.g. 6167064"
+                            <input 
+                                className={`block w-full px-4 py-5 bg-background border-2 ${error ? 'border-destructive focus:border-destructive' : 'border-border focus:border-primary'} text-foreground font-body text-lg rounded-md focus:outline-none transition-colors`} 
+                                id="team_id" 
+                                name="team_id" 
+                                placeholder="e.g. 1234567" 
+                                required 
+                                type="text"
                                 value={entryId}
-                                onChange={(e) => setEntryId(e.target.value)}
-                                required
-                                className="text-lg"
+                                onChange={(e) => {
+                                    setEntryId(e.target.value);
+                                    if (error) setError('');
+                                }}
                             />
-                            <p className="text-xs text-muted-foreground">
-                                Find your Team ID in your FPL URL: fantasy.premierleague.com/entry/<strong>YOUR_ID</strong>/
-                            </p>
                         </div>
 
                         {error && (
-                            <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-                                {error}
+                            <div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive border border-destructive rounded-md font-body text-sm font-medium animate-in fade-in slide-in-from-top-2">
+                                <span>{error}</span>
                             </div>
                         )}
 
-                        <Button
+                        <button 
+                            className="w-full flex items-center justify-center gap-3 py-5 px-8 border-2 border-transparent rounded-lg shadow-sm text-lg font-bold font-label text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all group disabled:opacity-50 disabled:cursor-not-allowed" 
                             type="submit"
-                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                            size="lg"
                             disabled={loading}
                         >
-                            {loading ? 'Connecting...' : 'View Dashboard'}
-                        </Button>
+                            {loading ? 'Connecting...' : 'View Live Analytics'}
+                        </button>
                     </form>
 
-                    <div className="mt-6 pt-6 border-t border-border">
-                        <p className="text-xs text-muted-foreground text-center">
-                            ✅ No cookies needed! All public FPL data via secure proxy.
+                    {/* Security Signal */}
+                    <div className="mt-12 p-6 bg-muted rounded-lg border border-border flex items-start gap-4">
+                        <span className="material-symbols-outlined text-muted-foreground mt-0.5">lock</span>
+                        <p className="text-sm font-body text-muted-foreground">
+                            <strong>100% Secure & Read-Only.</strong> We only require read access to public FPL data to generate your live insights and mini-league tracking.
                         </p>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     );
 }

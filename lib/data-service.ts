@@ -15,7 +15,7 @@ const DATA_CACHE_DIR = path.join(process.cwd(), 'cache');
 interface CachedData {
     timestamp: number;
     bootstrap: FPLBootstrapStatic;
-    myTeam: FPLMyTeam;
+    myTeam: FPLMyTeam | null; // Can be null for public sessions
     history: FPLHistory;
     fixtures: any[]; // Fixtures data
 }
@@ -75,13 +75,21 @@ export async function getFPLData(sessionId: string) {
         throw new Error(`Failed to fetch game data: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    try {
-        console.log('[Data Service] Fetching my-team for entry', session.entryId);
-        myTeam = await client.getMyTeam(session.entryId);
-        console.log('[Data Service] ✓ my-team fetched');
-    } catch (e) {
-        console.error('[Data Service] ✗ my-team failed:', e);
-        throw new Error(`Failed to fetch team data: ${e instanceof Error ? e.message : String(e)}`);
+    // Only fetch my-team if we have FPL cookies (requires authentication)
+    if (session.fpl_cookie && session.fpl_cookie.trim() !== '') {
+        try {
+            console.log('[Data Service] Fetching my-team for entry', session.entryId);
+            myTeam = await client.getMyTeam(session.entryId);
+            console.log('[Data Service] ✓ my-team fetched');
+        } catch (e) {
+            console.error('[Data Service] ✗ my-team failed:', e);
+            // Don't throw - myTeam is optional for public sessions
+            console.warn('[Data Service] Continuing without my-team data (public session)');
+            myTeam = null;
+        }
+    } else {
+        console.log('[Data Service] Skipping my-team fetch (no FPL cookies - public session)');
+        myTeam = null;
     }
 
     try {

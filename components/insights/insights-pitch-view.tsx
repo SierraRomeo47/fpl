@@ -2,7 +2,9 @@
 
 import { X, Cross, Ban, Eye } from 'lucide-react';
 import { FixtureDifficulty } from './fixture-difficulty';
-import { getPlayerPhotoUrls, getTeamBadgeUrl, getPlayerInitials } from '@/lib/player-photo-utils';
+import { getPlayerPhotoUrls, getPlayerInitials, PLAYER_HEADSHOT_IMG_CLASSNAME } from '@/lib/player-photo-utils';
+import { cn } from '@/lib/utils';
+import { TeamBadgeImage } from '@/components/team-badge-image';
 import { useState } from 'react';
 
 interface InsightsPitchViewProps {
@@ -25,7 +27,13 @@ interface InsightsPitchViewProps {
 function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, onClick, showRank = true, pick, expectedPoints, isSquadView = false, isHistoryView = false, getHistoricalExpectedPoints, getHistoricalActualPoints, getHistoricalGWStats }: any) {
     const [photoUrlIndex, setPhotoUrlIndex] = useState(0);
     const [photoFailed, setPhotoFailed] = useState(false);
-    const photoUrls = getPlayerPhotoUrls({ code: player.code, photo: player.photo, web_name: player.web_name, team: player.team });
+    const photoUrls = getPlayerPhotoUrls({
+        code: player.code,
+        photo: player.photo,
+        web_name: player.web_name,
+        team: player.team,
+        elementId: player.id,
+    });
 
     const form = parseFloat(player.form) || 0;
     const ownership = parseFloat(player.selected_by_percent) || 0;
@@ -211,7 +219,7 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                                             key={photoUrlIndex}
                                             src={currentPhotoUrl}
                                             alt={player.web_name}
-                                            className="w-full h-full object-cover"
+                                            className={cn('w-full h-full', PLAYER_HEADSHOT_IMG_CLASSNAME)}
                                             onError={handlePhotoError}
                                         />
                                     ) : (
@@ -225,18 +233,10 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                                 {team && (
                                     <div className="absolute top-1 right-1 z-10">
                                         <div className="w-3 h-3 sm:w-6 sm:h-6 md:w-7 md:h-7 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-white/70 overflow-hidden">
-                                            <img
-                                                src={getTeamBadgeUrl(team.code)}
+                                            <TeamBadgeImage
+                                                teamCode={team.code}
                                                 alt={team.short_name}
                                                 className="w-2.5 h-2.5 sm:w-5 sm:h-5 md:w-6 md:h-6 object-contain"
-                                                onError={(e) => {
-                                                    const img = e.currentTarget;
-                                                    img.style.display = 'none';
-                                                    const span = document.createElement('span');
-                                                    span.className = 'font-black text-xs text-gray-800';
-                                                    span.textContent = team?.short_name?.substring(0, 3).toUpperCase() || '';
-                                                    img.parentElement!.appendChild(span);
-                                                }}
                                             />
                                         </div>
                                     </div>
@@ -269,7 +269,7 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                                             key={photoUrlIndex}
                                             src={currentPhotoUrl}
                                             alt={player.web_name}
-                                            className="w-full h-full object-cover"
+                                            className={cn('w-full h-full', PLAYER_HEADSHOT_IMG_CLASSNAME)}
                                             onError={handlePhotoError}
                                         />
                                     ) : (
@@ -283,18 +283,10 @@ function PitchPlayerCard({ player, team, teams, fixtures, currentEvent, rank, on
                                 {team && (
                                     <div className="absolute top-1 right-1 z-10">
                                         <div className={`w-3 h-3 sm:w-7 sm:h-7 md:w-8 md:h-8 ${colors.accent} rounded-full flex items-center justify-center shadow-lg border-2 border-white/70 overflow-hidden bg-white`}>
-                                            <img
-                                                src={getTeamBadgeUrl(team.code)}
+                                            <TeamBadgeImage
+                                                teamCode={team.code}
                                                 alt={team.short_name}
                                                 className="w-2.5 h-2.5 sm:w-5 sm:h-5 md:w-6 md:h-6 object-contain"
-                                                onError={(e) => {
-                                                    const img = e.currentTarget;
-                                                    img.style.display = 'none';
-                                                    const span = document.createElement('span');
-                                                    span.className = 'font-black text-xs text-gray-800';
-                                                    span.textContent = team?.short_name?.substring(0, 3).toUpperCase() || '';
-                                                    img.parentElement!.appendChild(span);
-                                                }}
                                             />
                                         </div>
                                     </div>
@@ -582,25 +574,25 @@ export function InsightsPitchView({
     }
 
     return (
-        <div className="relative overflow-x-auto overflow-y-hidden rounded-2xl md:rounded-3xl border-2 border-orange-500/30 shadow-2xl w-full">
+        <div className="relative overflow-x-auto overflow-y-hidden rounded-t-2xl md:rounded-t-3xl border-2 border-green-800 shadow-2xl w-full">
             {/* Realistic Pitch Background */}
-            <div className="relative min-h-[520px] sm:min-h-[700px] md:min-h-[800px] lg:min-h-[900px] bg-gradient-to-b from-green-600 via-green-700 to-green-800">
+            <div className="relative min-h-[380px] sm:min-h-[480px] md:min-h-[550px] lg:min-h-[600px] bg-gradient-to-b from-[#1a5a2a] via-[#1e6e33] to-[#154721]">
                 {/* Detailed Grass Stripes Pattern */}
                 <div className="absolute inset-0" style={{
                     backgroundImage: `
                         repeating-linear-gradient(
                             0deg,
-                            rgba(34, 139, 34, 0.4) 0px,
-                            rgba(34, 139, 34, 0.4) 50px,
-                            rgba(46, 125, 50, 0.6) 50px,
-                            rgba(46, 125, 50, 0.6) 100px
+                            rgba(255, 255, 255, 0.03) 0px,
+                            rgba(255, 255, 255, 0.03) 40px,
+                            transparent 40px,
+                            transparent 80px
                         )
                     `,
-                    backgroundSize: '100% 100px'
+                    backgroundSize: '100% 80px'
                 }} />
 
                 {/* Grass Texture Overlay */}
-                <div className="absolute inset-0 opacity-30" style={{
+                <div className="absolute inset-0 opacity-20" style={{
                     backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px)`,
                     backgroundSize: '4px 4px'
                 }} />
@@ -608,45 +600,45 @@ export function InsightsPitchView({
                 {/* Pitch Markings */}
                 <div className="absolute inset-0">
                     {/* Outer Boundary */}
-                    <div className="absolute inset-4 md:inset-8 border-2 md:border-4 border-white/40 rounded-lg" />
+                    <div className="absolute inset-2 md:inset-4 border md:border-2 border-white/30 rounded-lg" />
 
                     {/* Halfway Line */}
-                    <div className="absolute top-0 bottom-0 left-1/2 w-0.5 md:w-1 bg-white/40" />
+                    <div className="absolute top-0 bottom-0 left-1/2 w-px md:w-0.5 bg-white/30" />
 
                     {/* Center Circle */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-64 md:h-64 border-2 md:border-4 border-white/40 rounded-full" />
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 md:w-4 md:h-4 bg-white/50 rounded-full shadow-lg" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 md:w-40 md:h-40 border md:border-2 border-white/30 rounded-full" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 md:w-2 md:h-2 bg-white/40 rounded-full shadow-lg" />
 
                     {/* Top Penalty Area */}
-                    <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 w-48 md:w-96 h-18 md:h-36 border-2 md:border-4 border-white/40 border-t-0 rounded-b-sm" />
+                    <div className="absolute top-2 md:top-4 left-1/2 -translate-x-1/2 w-40 md:w-64 h-12 md:h-20 border md:border-2 border-white/30 border-t-0 rounded-b-sm" />
                     {/* Top Goal Area */}
-                    <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 w-24 md:w-48 h-10 md:h-20 border-2 md:border-4 border-white/40 border-t-0 rounded-b-sm" />
+                    <div className="absolute top-2 md:top-4 left-1/2 -translate-x-1/2 w-16 md:w-28 h-5 md:h-8 border md:border-2 border-white/30 border-t-0 rounded-b-sm" />
                     {/* Top Penalty Spot */}
-                    <div className="absolute top-16 md:top-32 left-1/2 -translate-x-1/2 w-1.5 h-1.5 md:w-2 md:h-2 bg-white/50 rounded-full" />
+                    <div className="absolute top-10 md:top-16 left-1/2 -translate-x-1/2 w-1 h-1 md:w-1.5 md:h-1.5 bg-white/40 rounded-full" />
                     {/* Top Penalty Arc */}
-                    <div className="absolute top-18 md:top-36 left-1/2 -translate-x-1/2 w-28 md:w-56 h-14 md:h-28 border-2 md:border-4 border-white/40 border-b-0 border-l-0 border-r-0 rounded-t-full" />
+                    <div className="absolute top-14 md:top-24 left-1/2 -translate-x-1/2 w-16 md:w-28 h-8 md:h-12 border md:border-2 border-white/30 border-b-0 border-l-0 border-r-0 rounded-t-full" />
 
                     {/* Bottom Penalty Area */}
-                    <div className="absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 w-48 md:w-96 h-18 md:h-36 border-2 md:border-4 border-white/40 border-b-0 rounded-t-sm" />
+                    <div className="absolute bottom-2 md:bottom-4 left-1/2 -translate-x-1/2 w-40 md:w-64 h-12 md:h-20 border md:border-2 border-white/30 border-b-0 rounded-t-sm" />
                     {/* Bottom Goal Area */}
-                    <div className="absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 w-24 md:w-48 h-10 md:h-20 border-2 md:border-4 border-white/40 border-b-0 rounded-t-sm" />
+                    <div className="absolute bottom-2 md:bottom-4 left-1/2 -translate-x-1/2 w-16 md:w-28 h-5 md:h-8 border md:border-2 border-white/30 border-b-0 rounded-t-sm" />
                     {/* Bottom Penalty Spot */}
-                    <div className="absolute bottom-16 md:bottom-32 left-1/2 -translate-x-1/2 w-1.5 h-1.5 md:w-2 md:h-2 bg-white/50 rounded-full" />
+                    <div className="absolute bottom-10 md:bottom-16 left-1/2 -translate-x-1/2 w-1 h-1 md:w-1.5 md:h-1.5 bg-white/40 rounded-full" />
                     {/* Bottom Penalty Arc */}
-                    <div className="absolute bottom-18 md:bottom-36 left-1/2 -translate-x-1/2 w-28 md:w-56 h-14 md:h-28 border-2 md:border-4 border-white/40 border-t-0 border-l-0 border-r-0 rounded-b-full" />
+                    <div className="absolute bottom-14 md:bottom-24 left-1/2 -translate-x-1/2 w-16 md:w-28 h-8 md:h-12 border md:border-2 border-white/30 border-t-0 border-l-0 border-r-0 rounded-b-full" />
 
                     {/* Corner Arcs */}
-                    <div className="absolute top-4 md:top-8 left-4 md:left-8 w-4 h-4 md:w-8 md:h-8 border-2 md:border-4 border-white/40 border-t-0 border-l-0 rounded-br-full" />
-                    <div className="absolute top-4 md:top-8 right-4 md:right-8 w-4 h-4 md:w-8 md:h-8 border-2 md:border-4 border-white/40 border-t-0 border-r-0 rounded-bl-full" />
-                    <div className="absolute bottom-4 md:bottom-8 left-4 md:left-8 w-4 h-4 md:w-8 md:h-8 border-2 md:border-4 border-white/40 border-b-0 border-l-0 rounded-tr-full" />
-                    <div className="absolute bottom-4 md:bottom-8 right-4 md:right-8 w-4 h-4 md:w-8 md:h-8 border-2 md:border-4 border-white/40 border-b-0 border-r-0 rounded-tl-full" />
+                    <div className="absolute top-2 md:top-4 left-2 md:left-4 w-3 h-3 md:w-4 md:h-4 border md:border-2 border-white/30 border-t-0 border-l-0 rounded-br-full" />
+                    <div className="absolute top-2 md:top-4 right-2 md:right-4 w-3 h-3 md:w-4 md:h-4 border md:border-2 border-white/30 border-t-0 border-r-0 rounded-bl-full" />
+                    <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 w-3 h-3 md:w-4 md:h-4 border md:border-2 border-white/30 border-b-0 border-l-0 rounded-tr-full" />
+                    <div className="absolute bottom-2 md:bottom-4 right-2 md:right-4 w-3 h-3 md:w-4 md:h-4 border md:border-2 border-white/30 border-b-0 border-r-0 rounded-tl-full" />
                 </div>
 
                 {/* 3D Depth Shadow Effect */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20 pointer-events-none" />
 
                 {/* Players in Formation */}
-                <div className="relative z-10 py-3 sm:py-10 md:py-12 px-0 sm:px-4 md:px-6 space-y-2.5 sm:space-y-6 md:space-y-8">
+                <div className="relative z-10 py-1 sm:py-4 md:py-6 lg:py-8 px-0 sm:px-2 md:px-4 space-y-2 sm:space-y-4 md:space-y-6 lg:space-y-8 flex flex-col justify-between h-full min-h-[380px] sm:min-h-[480px] md:min-h-[550px] lg:min-h-[600px]">
                     {/* Line 1: Goalkeeper */}
                     {goalkeepers.length > 0 && (
                         <div className="flex justify-center">

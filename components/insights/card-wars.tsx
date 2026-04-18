@@ -217,7 +217,7 @@ export function CardWars({
                 >
                     <div className="flex items-center justify-between">
                         <h3 className={`text-2xl font-black uppercase ${
-                            overallWinner === 'myTeam' ? 'text-green-600' : 'text-gray-400'
+                            overallWinner === 'myTeam' ? 'text-positive' : 'text-muted-foreground'
                         }`}>
                             Your Team
                         </h3>
@@ -245,7 +245,7 @@ export function CardWars({
                 >
                     <div className="flex items-center justify-between">
                         <h3 className={`text-2xl font-black uppercase ${
-                            overallWinner === 'alternate' ? 'text-green-600' : 'text-gray-400'
+                            overallWinner === 'alternate' ? 'text-positive' : 'text-muted-foreground'
                         }`}>
                             Best Alternate Team
                         </h3>

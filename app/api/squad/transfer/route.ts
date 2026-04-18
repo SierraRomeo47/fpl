@@ -42,8 +42,7 @@ export async function POST(req: NextRequest) {
             selling_price: transfersOut[index].selling_price,
         }));
 
-        // Make transfer request
-        const result = await client.makeTransfer(session.entryId!, {
+        const result = await client.makeTransfer({
             chip: null,
             entry: session.entryId,
             event: event,

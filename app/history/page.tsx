@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Trophy, X, ChevronLeft, ChevronRight, Users, Target, Shield, Zap, Award, Activity, Star, Sparkles, Layers, RotateCcw } from "lucide-react";
+import { TrendingUp, TrendingDown, ArrowDown, Trophy, X, ChevronLeft, ChevronRight, Users, Target, Shield, Zap, Award, Activity, Star, Sparkles, Layers, RotateCcw } from "lucide-react";
 import { useFPLData, useEventPicks } from "@/lib/hooks/use-fpl-data";
 import { InsightsPitchView } from "@/components/insights/insights-pitch-view";
 import { PlayerDetailModal } from "@/components/insights/player-detail-modal";
-import { getPlayerPhotoUrls, getTeamBadgeUrl, getPlayerInitials } from '@/lib/player-photo-utils';
+import { PlayerAvatar } from '@/components/player-avatar';
 
 
 // Retry helper with exponential backoff
@@ -29,9 +29,30 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, maxRetries
     throw new Error('Max retries exceeded');
 }
 
+const POS_LABELS = ['', 'GKP', 'DEF', 'MID', 'FWD'];
+
+function escapeCsvCell(val: unknown): string {
+    const s = val === null || val === undefined ? '' : String(val);
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+}
+
+function downloadTextFile(filename: string, content: string, mime: string) {
+    const blob = new Blob(['\uFEFF' + content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 export default function HistoryPage() {
     const router = useRouter();
-    const [sessionData, setSessionData] = useState<{ entryId: number } | null>(null);
+    const [sessionData, setSessionData] = useState<{ entryId: number; teamName?: string; playerName?: string } | null>(null);
     const [selectedGW, setSelectedGW] = useState<number | null>(null);
     const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
     const [playerHistories, setPlayerHistories] = useState<Map<number, any[]>>(new Map());
@@ -44,6 +65,7 @@ export default function HistoryPage() {
     const [gameweekPicks, setGameweekPicks] = useState<Map<number, any>>(new Map()); // Map of gameweek -> picks data
     const [adjustedPoints, setAdjustedPoints] = useState<Record<number, number>>({}); // Object: gameweek -> adjusted points (using object for React reactivity)
     const [pointsCalculated, setPointsCalculated] = useState(false); // Flag to track if calculations are complete
+    const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
         let mounted = true;
@@ -51,7 +73,9 @@ export default function HistoryPage() {
         const loadSession = async () => {
             try {
                 // Use /api/session which checks cookie-based session
-                const res = await fetchWithRetry('/api/session');
+                const res = await fetchWithRetry('/api/session', {
+                    credentials: 'include'
+                });
                 if (!res.ok) {
                     // Only redirect if it's a 401 (unauthorized) - means no valid session
                     if (res.status === 401) {
@@ -64,7 +88,9 @@ export default function HistoryPage() {
                 const data = await res.json();
                 if (mounted) {
                     // Get full session data from /api/session/create if needed
-                    const createRes = await fetch('/api/session/create');
+                    const createRes = await fetch('/api/session/create', {
+                        credentials: 'include'
+                    });
                     if (createRes.ok) {
                         const sessionData = await createRes.json();
                         setSessionData(sessionData.session || sessionData);
@@ -99,27 +125,6 @@ export default function HistoryPage() {
             setSelectedGW(lastGW?.event);
         }
     }, [history, selectedGW]);
-
-    // Show error state if session failed
-    if (sessionError) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-                <div className="text-center space-y-4 p-4">
-                    <p className="text-lg text-destructive font-semibold">Error loading session</p>
-                    <p className="text-sm text-muted-foreground">{sessionError}</p>
-                    <button
-                        onClick={() => {
-                            setSessionError(null);
-                            router.refresh();
-                        }}
-                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-                    >
-                        Retry
-                    </button>
-                </div>
-            </div>
-        );
-    }
 
     // Fetch player histories for all players in the selected gameweek
     useEffect(() => {
@@ -345,6 +350,27 @@ export default function HistoryPage() {
 
         fetchAllPicks();
     }, [sessionData?.entryId, history?.current, allPicksLoaded]);
+
+    // Show error state if session failed (after all hooks — Rules of Hooks)
+    if (sessionError) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="text-center space-y-4 p-4">
+                    <p className="text-lg text-destructive font-semibold">Error loading session</p>
+                    <p className="text-sm text-muted-foreground">{sessionError}</p>
+                    <button
+                        onClick={() => {
+                            setSessionError(null);
+                            router.refresh();
+                        }}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
     
     const currentEvent = bootstrap?.events?.find((e: any) => e.is_current);
 
@@ -536,21 +562,21 @@ export default function HistoryPage() {
                 icon: RotateCcw, 
                 label: 'FH', 
                 fullName: 'Free Hit',
-                textColor: 'text-green-400', 
-                borderColor: 'border-green-400', 
-                ringColor: 'ring-green-400/50',
-                bgColor: 'bg-green-500/10',
-                badgeBgColor: 'bg-green-500/20'
+                textColor: 'text-positive', 
+                borderColor: 'border-positive', 
+                ringColor: 'ring-positive/50',
+                bgColor: 'bg-positive-muted',
+                badgeBgColor: 'bg-positive-muted'
             },
             'freehit': {  // Alternative format
                 icon: RotateCcw, 
                 label: 'FH', 
                 fullName: 'Free Hit',
-                textColor: 'text-green-400', 
-                borderColor: 'border-green-400', 
-                ringColor: 'ring-green-400/50',
-                bgColor: 'bg-green-500/10',
-                badgeBgColor: 'bg-green-500/20'
+                textColor: 'text-positive', 
+                borderColor: 'border-positive', 
+                ringColor: 'ring-positive/50',
+                bgColor: 'bg-positive-muted',
+                badgeBgColor: 'bg-positive-muted'
             },
         };
         
@@ -609,6 +635,20 @@ export default function HistoryPage() {
 
     const topPlayers = getTopPlayers();
 
+    const histLast = history.current[history.current.length - 1];
+    const histPrev = history.current.length >= 2 ? history.current[history.current.length - 2] : null;
+    const totalManagers = (bootstrap as { total_players?: number }).total_players ?? 11_000_000;
+    const approxTopPercent =
+        histLast?.overall_rank != null && totalManagers > 0
+            ? Math.min(100, (100 * histLast.overall_rank) / totalManagers)
+            : null;
+    const histRankChange =
+        histPrev && histLast ? histPrev.overall_rank - histLast.overall_rank : 0;
+    const lastGwValueDelta =
+        histPrev && histLast && histLast.value != null && histPrev.value != null
+            ? (histLast.value - histPrev.value) / 10
+            : null;
+
     const categoryOptions = [
         { value: 'my_points', label: 'My Points', icon: Trophy },
         { value: 'total_points', label: 'Total Points', icon: Trophy },
@@ -644,52 +684,213 @@ export default function HistoryPage() {
         }
     };
 
+    const handleExport = () => {
+        if (!history?.current?.length || !sessionData?.entryId) return;
+
+        setExporting(true);
+        try {
+            const rows: string[][] = [];
+            const push = (r: string[]) => rows.push(r.map(escapeCsvCell));
+
+            push(['FPL DnD — Season history export']);
+            push([]);
+            push(['Entry ID', String(sessionData.entryId)]);
+            if (sessionData.teamName) push(['Team name', sessionData.teamName]);
+            if (sessionData.playerName) push(['Manager', sessionData.playerName]);
+            push(['Exported (UTC)', new Date().toISOString()]);
+            push([]);
+
+            const last = history.current[history.current.length - 1];
+            push(['SUMMARY']);
+            push(['Total points', String(last?.total_points ?? '')]);
+            push(['Overall rank', String(last?.overall_rank ?? '')]);
+            push(['Team value (£m)', last?.value != null ? (last.value / 10).toFixed(1) : '']);
+            push(['Gameweeks completed', String(history.current.length)]);
+            push([]);
+
+            push(['GAMEWEEKS']);
+            push([
+                'GW',
+                'Points',
+                'Running total',
+                'Overall rank',
+                'GW rank',
+                'Bank (£m)',
+                'Squad value (£m)',
+                'Transfers in GW',
+                'Transfer cost (pts)',
+                'Bench points',
+                'Chip',
+                'Adjusted points (app)',
+            ]);
+            for (const gw of history.current) {
+                const ev = gw.event;
+                const chip = chipUsage.get(ev) ?? '';
+                const adj =
+                    pointsCalculated && adjustedPoints[ev] !== undefined
+                        ? String(adjustedPoints[ev])
+                        : '';
+                push([
+                    String(ev),
+                    String(gw.points ?? ''),
+                    String(gw.total_points ?? ''),
+                    String(gw.overall_rank ?? ''),
+                    String(gw.rank ?? ''),
+                    gw.bank != null ? (gw.bank / 10).toFixed(1) : '',
+                    gw.value != null ? (gw.value / 10).toFixed(1) : '',
+                    String(gw.event_transfers ?? ''),
+                    String(gw.event_transfers_cost ?? ''),
+                    String(gw.points_on_bench ?? ''),
+                    chip,
+                    adj,
+                ]);
+            }
+            push([]);
+
+            push(['TOP 3 PLAYERS (current sort: ' + (categoryOptions.find((c) => c.value === topCategory)?.label ?? topCategory) + ')']);
+            push(['Rank', 'Name', 'Team', 'Pos', 'Category value']);
+            topPlayers.forEach((player, i) => {
+                const team = getTeam(player.team);
+                push([
+                    String(i + 1),
+                    player.web_name ?? '',
+                    team?.short_name ?? '',
+                    POS_LABELS[player.element_type] ?? '',
+                    String(getCategoryValue(player, topCategory)),
+                ]);
+            });
+            push([]);
+
+            push(['ALL PLAYERS (stats while picked in your team)']);
+            push([
+                'Player',
+                'Team',
+                'Pos',
+                'My points',
+                'Goals',
+                'Assists',
+                'Clean sheets',
+                'Appearances (GWs)',
+                'Season total pts',
+                'Price (£m)',
+            ]);
+            const sortedIds = Array.from(myPlayers).sort((a, b) => {
+                const pa = playerStats.get(a)?.points ?? 0;
+                const pb = playerStats.get(b)?.points ?? 0;
+                return pb - pa;
+            });
+            for (const id of sortedIds) {
+                const p = elements.find((e: any) => e.id === id);
+                if (!p) continue;
+                const st = playerStats.get(id);
+                const team = getTeam(p.team);
+                push([
+                    p.web_name ?? '',
+                    team?.short_name ?? '',
+                    POS_LABELS[p.element_type] ?? '',
+                    String(st?.points ?? 0),
+                    String(st?.goals ?? 0),
+                    String(st?.assists ?? 0),
+                    String(st?.cleanSheets ?? 0),
+                    String(st?.appearances ?? 0),
+                    String(p.total_points ?? 0),
+                    p.now_cost != null ? (p.now_cost / 10).toFixed(1) : '',
+                ]);
+            }
+
+            const csv = rows.map((row) => row.join(',')).join('\r\n');
+            const safeDate = new Date().toISOString().slice(0, 10);
+            downloadTextFile(
+                `fpl-history-${sessionData.entryId}-${safeDate}.csv`,
+                csv,
+                'text/csv;charset=utf-8;'
+            );
+        } finally {
+            setExporting(false);
+        }
+    };
+
     return (
         <>
-            <div className="min-h-screen bg-background pb-24 pt-16">
-                <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-5 md:space-y-6">
-                    {/* Hero Section - Match Dashboard Style */}
-                    <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-card border border-border p-4 md:p-8">
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
-                                    <Trophy className="w-6 h-6 text-primary" />
-                                </div>
-                                <div>
-                                    <h1 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-foreground">
-                                        Season History
-                                    </h1>
-                                    <p className="text-muted-foreground">Click any gameweek to view details</p>
-                                </div>
-                            </div>
+            <div className="min-h-screen bg-surface pb-24 pt-6">
+                <div className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+                    {/* Header Section */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-4">
+                        <div>
+                            <h1 className="text-3xl md:text-4xl font-black font-headline tracking-tight text-on-surface uppercase drop-shadow-sm">SEASON HISTORY</h1>
+                            <p className="text-on-surface-variant mt-1 font-medium">Overall Performance Gameweeks 1-{history.current.length > 0 ? history.current[history.current.length - 1].event : ''}</p>
                         </div>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="border-2 border-outline-variant hover:bg-surface-container shadow-sm font-bold h-10 w-full md:w-auto"
+                            disabled={exporting || !history.current.length}
+                            onClick={handleExport}
+                        >
+                            <span className="flex items-center gap-2">
+                                <ArrowDown className="w-4 h-4" />
+                                {exporting ? 'Exporting…' : 'Export'}
+                            </span>
+                        </Button>
                     </div>
 
-                    {/* Season Summary */}
-                    <Card className="border-primary/20">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Trophy className="w-5 h-5" />
-                                Season Summary
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid md:grid-cols-3 gap-4">
-                                <div className="text-center p-6 bg-gradient-to-br from-primary/10 to-orange-500/10 rounded-xl border border-primary/20">
-                                    <p className="text-sm text-muted-foreground mb-2">Total Points</p>
-                                    <p className="text-4xl font-black">{history.current[history.current.length - 1]?.total_points}</p>
-                                </div>
-                                <div className="text-center p-6 bg-gradient-to-br from-blue-500/10 to-blue-700/10 rounded-xl border border-blue-500/20">
-                                    <p className="text-sm text-muted-foreground mb-2">Current Rank</p>
-                                    <p className="text-4xl font-black">{history.current[history.current.length - 1]?.overall_rank.toLocaleString()}</p>
-                                </div>
-                                <div className="text-center p-6 bg-gradient-to-br from-green-500/10 to-emerald-700/10 rounded-xl border border-green-500/20">
-                                    <p className="text-sm text-muted-foreground mb-2">Team Value</p>
-                                    <p className="text-4xl font-black">£{(history.current[history.current.length - 1]?.value / 10).toFixed(1)}m</p>
-                                </div>
+                    {/* Season Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        {/* Total Points (White outline card) */}
+                        <div className="bg-surface-container-lowest rounded-2xl p-6 border-2 border-outline-variant relative overflow-hidden shadow-sm hover:-translate-y-1 transition-transform">
+                            <div className="relative z-10">
+                                <p className="text-sm font-bold text-on-surface-variant font-headline tracking-wider uppercase flex items-center gap-2">
+                                    <span className="text-primary font-black">Σ</span> TOTAL POINTS
+                                </p>
+                                <p className="text-5xl font-black mt-2 tracking-tighter text-on-surface">{history.current[history.current.length - 1]?.total_points}</p>
+                                <p className="text-tertiary font-bold mt-2 text-sm" title="Uses total active managers from FPL bootstrap-static">
+                                    {approxTopPercent != null
+                                        ? `~Top ${approxTopPercent.toFixed(1)}% of managers`
+                                        : '—'}
+                                </p>
                             </div>
-                        </CardContent>
-                    </Card>
+                            <div className="absolute -top-4 -right-4 w-24 h-24 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 to-transparent"></div>
+                        </div>
+                        
+                        {/* Overall Rank (Dark card) */}
+                        <div className="bg-[#1c1b1b] rounded-2xl p-6 text-white border-2 border-[#1c1b1b] shadow-[4px_4px_0px_0px_rgba(255,107,0,1)] hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0px_0px_rgba(255,107,0,1)] transition-all">
+                            <p className="text-sm font-bold text-muted-foreground font-headline tracking-wider uppercase flex items-center gap-2">
+                                <Trophy className="w-4 h-4 text-primary"/> OVERALL RANK
+                            </p>
+                            <p className="text-5xl font-black mt-2 tracking-tighter drop-shadow-md">
+                                {history.current[history.current.length - 1]?.overall_rank > 1000 ? 
+                                    `${(history.current[history.current.length - 1]?.overall_rank / 1000).toFixed(0)}K` : 
+                                    history.current[history.current.length - 1]?.overall_rank.toLocaleString()
+                                }
+                            </p>
+                            <p className={`text-tertiary font-bold mt-2 text-sm border-b-2 border-tertiary/30 inline-block ${histRankChange !== 0 ? '' : 'opacity-70'}`}>
+                                {histRankChange !== 0 ? (
+                                    <>
+                                        {histRankChange > 0 ? '↑ Up ' : '↓ Down '}
+                                        {Math.abs(histRankChange) > 1000
+                                            ? `${(Math.abs(histRankChange) / 1000).toFixed(1)}k`
+                                            : Math.abs(histRankChange).toLocaleString()}{' '}
+                                        vs last GW
+                                    </>
+                                ) : (
+                                    'No prior GW to compare'
+                                )}
+                            </p>
+                        </div>
+                        
+                        {/* Team Value (Orange card) */}
+                        <div className="bg-primary rounded-2xl p-6 text-white border-2 border-primary shadow-lg shadow-primary/30 hover:-translate-y-1 hover:shadow-primary/40 transition-all">
+                            <p className="text-sm font-bold font-headline tracking-wider uppercase flex items-center gap-2 text-white/90">
+                                <Activity className="w-4 h-4"/> TEAM VALUE
+                            </p>
+                            <p className="text-5xl font-black mt-2 tracking-tighter drop-shadow-md">£{(history.current[history.current.length - 1]?.value / 10).toFixed(1)}</p>
+                            <p className="text-white/80 font-bold mt-2 text-sm italic">
+                                {lastGwValueDelta != null
+                                    ? `${lastGwValueDelta >= 0 ? '+' : '-'}£${Math.abs(lastGwValueDelta).toFixed(1)}m vs last GW`
+                                    : '—'}
+                            </p>
+                        </div>
+                    </div>
 
                     {/* Top 3 Players Section */}
                     <Card className="border-primary/20">
@@ -702,7 +903,7 @@ export default function HistoryPage() {
                                 <select
                                     value={topCategory}
                                     onChange={(e) => setTopCategory(e.target.value)}
-                                    className="px-4 py-2 bg-background border border-primary/30 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+                                    className="px-4 py-2 bg-background border border-primary/30 rounded-lg text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
                                 >
                                     {categoryOptions.map((opt) => (
                                         <option key={opt.value} value={opt.value}>
@@ -733,22 +934,12 @@ export default function HistoryPage() {
                                                 </div>
 
                                                 <div className="flex items-center gap-4">
-                                                    {/* Player Photo */}
-                                                    <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-primary/50 bg-gradient-to-br from-white to-gray-100 flex-shrink-0">
-                                                        <img
-                                                            src={`https://resources.premierleague.com/premierleague/photos/players/250x250/p${player.code}.png`}
-                                                            alt={player.web_name}
-                                                            className="w-full h-full object-cover"
-                                                            onError={(e) => {
-                                                                const img = e.currentTarget;
-                                                                img.style.display = 'none';
-                                                                const span = document.createElement('span');
-                                                                span.className = 'w-full h-full flex items-center justify-center text-xl font-bold text-gray-800 bg-gray-200';
-                                                                span.textContent = getPlayerInitials(player.web_name);
-                                                                img.parentElement!.appendChild(span);
-                                                            }}
-                                                        />
-                                                    </div>
+                                                    <PlayerAvatar
+                                                        player={{ ...player, id: player.id }}
+                                                        teamBadgeCode={team?.code}
+                                                        size="md"
+                                                        className="border-2 border-primary/50 bg-gradient-to-br from-white to-gray-100"
+                                                    />
 
                                                     {/* Player Info */}
                                                     <div className="flex-1 min-w-0">
@@ -848,11 +1039,11 @@ export default function HistoryPage() {
                                                 </p>
                                                 <div className="flex items-center justify-center gap-1 text-xs">
                                                     {rankChange > 0 ? (
-                                                        <TrendingUp className="w-3 h-3 text-green-500" />
+                                                        <TrendingUp className="w-3 h-3 text-positive" />
                                                     ) : rankChange < 0 ? (
-                                                        <TrendingDown className="w-3 h-3 text-red-500" />
+                                                        <TrendingDown className="w-3 h-3 text-negative" />
                                                     ) : null}
-                                                    <span className={rankChange > 0 ? 'text-green-500 font-semibold' : rankChange < 0 ? 'text-red-500 font-semibold' : ''}>
+                                                    <span className={rankChange > 0 ? 'text-positive font-semibold' : rankChange < 0 ? 'text-negative font-semibold' : ''}>
                                                         {gw.overall_rank.toLocaleString()}
                                                     </span>
                                                 </div>
@@ -928,13 +1119,13 @@ export default function HistoryPage() {
                                                 <div className="flex items-center gap-1 mt-1">
                                                     {prevGWData.overall_rank - selectedGWData.overall_rank > 0 ? (
                                                         <>
-                                                            <TrendingUp className="w-3 h-3 text-green-500" />
-                                                            <span className="text-xs text-green-500 font-semibold">+{(prevGWData.overall_rank - selectedGWData.overall_rank).toLocaleString()}</span>
+                                                            <TrendingUp className="w-3 h-3 text-positive" />
+                                                            <span className="text-xs text-positive font-semibold">+{(prevGWData.overall_rank - selectedGWData.overall_rank).toLocaleString()}</span>
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <TrendingDown className="w-3 h-3 text-red-500" />
-                                                            <span className="text-xs text-red-500 font-semibold">{(prevGWData.overall_rank - selectedGWData.overall_rank).toLocaleString()}</span>
+                                                            <TrendingDown className="w-3 h-3 text-negative" />
+                                                            <span className="text-xs text-negative font-semibold">{(prevGWData.overall_rank - selectedGWData.overall_rank).toLocaleString()}</span>
                                                         </>
                                                     )}
                                                 </div>
@@ -1077,21 +1268,21 @@ export default function HistoryPage() {
 
                                             {/* Additional Stats */}
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t">
-                                                <div className="text-center p-3 bg-secondary/50 rounded-lg">
+                                                <div className="text-center p-3 rounded-lg border border-border bg-muted">
                                                     <p className="text-xs text-muted-foreground mb-1">Bench Points</p>
-                                                    <p className="text-2xl font-bold">{selectedGWData.points_on_bench}</p>
+                                                    <p className="text-2xl font-bold text-foreground">{selectedGWData.points_on_bench}</p>
                                                 </div>
-                                                <div className="text-center p-3 bg-secondary/50 rounded-lg">
+                                                <div className="text-center p-3 rounded-lg border border-border bg-muted">
                                                     <p className="text-xs text-muted-foreground mb-1">GW Rank</p>
-                                                    <p className="text-2xl font-bold">{selectedGWData.rank?.toLocaleString() || 'N/A'}</p>
+                                                    <p className="text-2xl font-bold text-foreground">{selectedGWData.rank?.toLocaleString() || 'N/A'}</p>
                                                 </div>
-                                                <div className="text-center p-3 bg-secondary/50 rounded-lg">
+                                                <div className="text-center p-3 rounded-lg border border-border bg-muted">
                                                     <p className="text-xs text-muted-foreground mb-1">Total Points</p>
-                                                    <p className="text-2xl font-bold">{selectedGWData.total_points}</p>
+                                                    <p className="text-2xl font-bold text-foreground">{selectedGWData.total_points}</p>
                                                 </div>
-                                                <div className="text-center p-3 bg-secondary/50 rounded-lg">
+                                                <div className="text-center p-3 rounded-lg border border-border bg-muted">
                                                     <p className="text-xs text-muted-foreground mb-1">Chip Used</p>
-                                                    <p className="text-lg font-bold">{picksData.active_chip || 'None'}</p>
+                                                    <p className="text-lg font-bold text-foreground">{picksData.active_chip || 'None'}</p>
                                                 </div>
                                             </div>
                                         </div>
